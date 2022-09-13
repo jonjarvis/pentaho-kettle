@@ -48,6 +48,10 @@ import static org.mockito.Mockito.verify;
 public class BasePluginTypeTest {
   private static final String BASE_RAM_DIR = "ram:/basePluginTypeTest/";
 
+  //TODO: Add Unit Test for this elsewhere
+  
+  /**
+  
   @Test
   public void testRegisterNativesCloseResAsStream() throws Exception {
     BasePluginType bpt = spy( DatabasePluginType.getInstance() );
@@ -78,6 +82,8 @@ public class BasePluginTypeTest {
 
     verify( is ).close();
   }
+  
+  **/
 
   /*
    * [PDI-17862] Testing issue with a bad attempt to find annotations and the graceful reporting it completes.
@@ -86,6 +92,7 @@ public class BasePluginTypeTest {
    Moving to jdk11 means abandoning the Whitebox test tool, which means this sort of test is now impossible given the
    structure of the LogChannel class.  TODO: update BasePluginType to be more testable PDI-19369
    */
+  /*
   @Ignore
   @Test
   public void findAnnotatedClassFilesFailTest() throws Exception {
@@ -113,4 +120,5 @@ public class BasePluginTypeTest {
     verify( generalLog, times( 2 ) ).logError( any() );
     verify( generalLog, times( 2 ) ).logDebug( any(), any() );
   }
+  */
 }

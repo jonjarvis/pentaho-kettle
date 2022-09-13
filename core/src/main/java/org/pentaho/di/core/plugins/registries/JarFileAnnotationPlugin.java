@@ -20,7 +20,7 @@
  *
  ******************************************************************************/
 
-package org.pentaho.di.core.plugins;
+package org.pentaho.di.core.plugins.registries;
 
 import java.net.URL;
 

@@ -35,6 +35,7 @@ import org.pentaho.di.core.plugins.PluginAnnotationType;
 import org.pentaho.di.core.plugins.PluginFolderInterface;
 import org.pentaho.di.core.plugins.PluginMainClassType;
 import org.pentaho.di.core.plugins.PluginTypeInterface;
+import org.pentaho.di.core.plugins.XMLPluginTypeInterface;
 import org.pentaho.di.core.vfs.KettleVFS;
 import org.pentaho.di.core.xml.XMLHandler;
 import org.w3c.dom.Document;
@@ -48,7 +49,7 @@ import org.w3c.dom.Node;
  */
 @PluginMainClassType( LoggingPluginInterface.class )
 @PluginAnnotationType( LoggingPlugin.class )
-public class LoggingPluginType extends BasePluginType implements PluginTypeInterface {
+public class LoggingPluginType extends BasePluginType implements PluginTypeInterface, XMLPluginTypeInterface {
 
   private static LoggingPluginType loggingPluginType;
 
@@ -63,28 +64,43 @@ public class LoggingPluginType extends BasePluginType implements PluginTypeInter
     }
     return loggingPluginType;
   }
+  
+  @Override
+  public String getPopulateFoldersPath() {
+    return "logging";
+  }
 
   @Override
-  protected String getXmlPluginFile() {
+  public String getPath() {
+    return null;
+  }
+
+  @Override
+  public boolean isReturn() {
+    return false;
+  }
+
+  @Override
+  public String getXmlPluginFile() {
     return Const.XML_FILE_KETTLE_LOGGING_PLUGINS;
   }
 
   @Override
-  protected String getAlternativePluginFile() {
+  public String getAlternativePluginFile() {
     return Const.KETTLE_LOGGING_PLUGINS_FILE;
   }
 
   @Override
-  protected String getMainTag() {
+  public String getMainTag() {
     return "logging-plugins";
   }
 
   @Override
-  protected String getSubTag() {
+  public String getSubTag() {
     return "logging-plugin";
   }
 
-  @Override
+  /*
   protected void registerXmlPlugins() throws KettlePluginException {
     for ( PluginFolderInterface folder : pluginFolders ) {
 
@@ -108,7 +124,8 @@ public class LoggingPluginType extends BasePluginType implements PluginTypeInter
       }
     }
   }
-
+  */
+  
   @Override
   protected String extractCategory( Annotation annotation ) {
     return null;

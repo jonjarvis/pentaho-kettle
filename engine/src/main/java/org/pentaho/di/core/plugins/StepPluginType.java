@@ -75,7 +75,7 @@ import org.w3c.dom.Node;
   i18nPackageClass = StepInterface.class )
 @PluginMainClassType( StepMetaInterface.class )
 @PluginAnnotationType( Step.class )
-public class StepPluginType extends BasePluginType implements PluginTypeInterface {
+public class StepPluginType extends BasePluginType implements PluginTypeInterface, XMLPluginTypeInterface {
 
   private static StepPluginType stepPluginType;
 
@@ -92,25 +92,27 @@ public class StepPluginType extends BasePluginType implements PluginTypeInterfac
   }
 
   @Override
-  protected String getXmlPluginFile() {
+  public String getXmlPluginFile() {
     return Const.XML_FILE_KETTLE_STEPS;
   }
 
   @Override
-  protected String getAlternativePluginFile() {
+  public String getAlternativePluginFile() {
     return Const.KETTLE_CORE_STEPS_FILE;
   }
 
   @Override
-  protected String getMainTag() {
+  public String getMainTag() {
     return "steps";
   }
 
   @Override
-  protected String getSubTag() {
+  public String getSubTag() {
     return "step";
   }
 
+  //TODO: Fix this
+  /**
   protected void registerXmlPlugins() throws KettlePluginException {
     for ( PluginFolderInterface folder : pluginFolders ) {
 
@@ -134,6 +136,7 @@ public class StepPluginType extends BasePluginType implements PluginTypeInterfac
       }
     }
   }
+  */
 
   @Override
   protected String extractCategory( Annotation annotation ) {
@@ -197,5 +200,20 @@ public class StepPluginType extends BasePluginType implements PluginTypeInterfac
   @Override
   protected String extractSuggestion( Annotation annotation ) {
     return ( (Step) annotation ).suggestion();
+  }
+
+  @Override
+  public String getPopulateFoldersPath() {
+    return "steps";
+  }
+
+  @Override
+  public String getPath() {
+    return null;
+  }
+
+  @Override
+  public boolean isReturn() {
+    return false;
   }
 }

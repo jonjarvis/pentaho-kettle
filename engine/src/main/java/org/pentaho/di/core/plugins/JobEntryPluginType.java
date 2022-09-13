@@ -56,7 +56,7 @@ import org.w3c.dom.Node;
   i18nPackageClass = JobMeta.class )
 @PluginMainClassType( JobEntryInterface.class )
 @PluginAnnotationType( JobEntry.class )
-public class JobEntryPluginType extends BasePluginType implements PluginTypeInterface {
+public class JobEntryPluginType extends BasePluginType implements PluginTypeInterface, XMLPluginTypeInterface {
   private static final Class<?> PKG = JobMeta.class; // for i18n purposes, needed by Translator2!!
 
   public static final String GENERAL_CATEGORY = BaseMessages.getString( PKG, "JobCategory.Category.General" );
@@ -80,25 +80,27 @@ public class JobEntryPluginType extends BasePluginType implements PluginTypeInte
   }
 
   @Override
-  protected String getXmlPluginFile() {
+  public String getXmlPluginFile() {
     return Const.XML_FILE_KETTLE_JOB_ENTRIES;
   }
 
   @Override
-  protected String getAlternativePluginFile() {
+  public String getAlternativePluginFile() {
     return Const.KETTLE_CORE_JOBENTRIES_FILE;
   }
 
   @Override
-  protected String getMainTag() {
+  public String getMainTag() {
     return "job-entries";
   }
 
   @Override
-  protected String getSubTag() {
+  public String getSubTag() {
     return "job-entry";
   }
 
+  //TODO: Fix this
+  /*
   protected void registerXmlPlugins() throws KettlePluginException {
     for ( PluginFolderInterface folder : pluginFolders ) {
 
@@ -121,7 +123,7 @@ public class JobEntryPluginType extends BasePluginType implements PluginTypeInte
         }
       }
     }
-  }
+  }*/
 
   @Override
   protected String extractCategory( Annotation annotation ) {
@@ -186,5 +188,22 @@ public class JobEntryPluginType extends BasePluginType implements PluginTypeInte
   @Override
   protected String extractClassLoaderGroup( Annotation annotation ) {
     return ( (JobEntry) annotation ).classLoaderGroup();
+  }
+
+  @Override
+  public String getPopulateFoldersPath() {
+    return "jobentries";
+  }
+
+  @Override
+  public String getPath() {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
+  @Override
+  public boolean isReturn() {
+    // TODO Auto-generated method stub
+    return false;
   }
 }

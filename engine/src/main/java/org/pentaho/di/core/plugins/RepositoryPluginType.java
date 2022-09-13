@@ -46,7 +46,7 @@ import org.w3c.dom.Node;
 @PluginMainClassType( Repository.class )
 @PluginExtraClassTypes( classTypes = { RepositoryMeta.class }, xmlNodeNames = { "meta-classname" } )
 @PluginAnnotationType( RepositoryPlugin.class )
-public class RepositoryPluginType extends BasePluginType implements PluginTypeInterface {
+public class RepositoryPluginType extends BasePluginType implements PluginTypeInterface, XMLPluginTypeInterface {
 
   private static RepositoryPluginType pluginType;
 
@@ -67,20 +67,22 @@ public class RepositoryPluginType extends BasePluginType implements PluginTypeIn
   }
 
   @Override
-  protected String getXmlPluginFile() {
+  public String getXmlPluginFile() {
     return Const.XML_FILE_KETTLE_REPOSITORIES;
   }
 
   @Override
-  protected String getMainTag() {
+  public String getMainTag() {
     return "repositories";
   }
 
   @Override
-  protected String getSubTag() {
+  public String getSubTag() {
     return "repository";
   }
 
+  //TODO: Fix this
+  /**
   protected void registerXmlPlugins() throws KettlePluginException {
     for ( PluginFolderInterface folder : pluginFolders ) {
 
@@ -104,6 +106,7 @@ public class RepositoryPluginType extends BasePluginType implements PluginTypeIn
       }
     }
   }
+  */
 
   @Override
   protected String extractCategory( Annotation annotation ) {
@@ -175,6 +178,29 @@ public class RepositoryPluginType extends BasePluginType implements PluginTypeIn
   @Override
   protected String extractClassLoaderGroup( Annotation annotation ) {
     return ( (RepositoryPlugin) annotation ).classLoaderGroup();
+  }
+
+  @Override
+  public String getPopulateFoldersPath() {
+    return "repositories";
+  }
+
+  @Override
+  public String getAlternativePluginFile() {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
+  @Override
+  public String getPath() {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
+  @Override
+  public boolean isReturn() {
+    // TODO Auto-generated method stub
+    return false;
   }
 
 }

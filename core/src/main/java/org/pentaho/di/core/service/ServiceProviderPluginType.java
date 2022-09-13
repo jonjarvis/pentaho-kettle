@@ -29,10 +29,11 @@ import org.pentaho.di.core.plugins.BasePluginType;
 import org.pentaho.di.core.plugins.PluginAnnotationType;
 import org.pentaho.di.core.plugins.PluginMainClassType;
 import org.pentaho.di.core.plugins.PluginTypeInterface;
+import org.pentaho.di.core.plugins.XMLPluginTypeInterface;
 
 @PluginMainClassType( ServiceProviderInterface.class )
 @PluginAnnotationType( ServiceProvider.class )
-public class ServiceProviderPluginType extends BasePluginType implements PluginTypeInterface {
+public class ServiceProviderPluginType extends BasePluginType implements PluginTypeInterface, XMLPluginTypeInterface {
 
   public ServiceProviderPluginType() {
     super( ServiceProvider.class, "SERVICEPROVIDER", "Service Provider" );
@@ -48,24 +49,36 @@ public class ServiceProviderPluginType extends BasePluginType implements PluginT
     return servicePluginType;
   }
 
+  
   @Override
-  protected String getXmlPluginFile() {
-    return "kettle-service-plugins.xml";
-  }
-
-  @Override
-  protected String getMainTag() {
+  public String getPopulateFoldersPath() {
     return "services";
   }
 
   @Override
-  protected String getSubTag() {
-    return "service";
+  public String getPath() {
+    return null;
   }
 
   @Override
-  protected void registerXmlPlugins() throws KettlePluginException {
+  public boolean isReturn() {
+    return false;
+  }
+  
+  //TODO: Make this a kettle Const
+  @Override
+  public String getXmlPluginFile() {
+    return "kettle-service-plugins.xml";
+  }
 
+  @Override
+  public String getMainTag() {
+    return "services";
+  }
+
+  @Override
+  public String getSubTag() {
+    return "service";
   }
 
   @Override
@@ -131,6 +144,11 @@ public class ServiceProviderPluginType extends BasePluginType implements PluginT
     } else {
       classMap.put( clz, clz.getName() );
     }
+  }
+
+  @Override
+  public String getAlternativePluginFile() {
+    return null;
   }
 
 }

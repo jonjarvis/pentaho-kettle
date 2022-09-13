@@ -38,7 +38,7 @@ import org.pentaho.di.imp.rule.ImportRuleInterface;
  */
 @PluginMainClassType( ImportRuleInterface.class )
 @PluginAnnotationType( ImportRulePlugin.class )
-public class ImportRulePluginType extends BasePluginType implements PluginTypeInterface {
+public class ImportRulePluginType extends BasePluginType implements PluginTypeInterface, XMLPluginTypeInterface {
 
   private static ImportRulePluginType pluginType;
 
@@ -55,17 +55,17 @@ public class ImportRulePluginType extends BasePluginType implements PluginTypeIn
   }
 
   @Override
-  protected String getXmlPluginFile() {
+  public String getXmlPluginFile() {
     return Const.XML_FILE_KETTLE_IMPORT_RULES;
   }
 
   @Override
-  protected String getMainTag() {
+  public String getMainTag() {
     return "rules";
   }
 
   @Override
-  protected String getSubTag() {
+  public String getSubTag() {
     return "rule";
   }
 
@@ -143,5 +143,25 @@ public class ImportRulePluginType extends BasePluginType implements PluginTypeIn
   @Override
   protected String extractClassLoaderGroup( Annotation annotation ) {
     return ( (ImportRulePlugin) annotation ).classLoaderGroup();
+  }
+
+  @Override
+  public String getPopulateFoldersPath() {
+    return "rules";
+  }
+
+  @Override
+  public String getAlternativePluginFile() {
+    return null;
+  }
+
+  @Override
+  public String getPath() {
+    return null;
+  }
+
+  @Override
+  public boolean isReturn() {
+    return false;
   }
 }

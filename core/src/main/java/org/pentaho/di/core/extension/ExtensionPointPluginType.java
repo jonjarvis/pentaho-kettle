@@ -26,11 +26,11 @@ import java.lang.annotation.Annotation;
 import java.util.Map;
 
 import org.pentaho.di.core.Const;
-import org.pentaho.di.core.exception.KettlePluginException;
 import org.pentaho.di.core.plugins.BasePluginType;
 import org.pentaho.di.core.plugins.PluginAnnotationType;
 import org.pentaho.di.core.plugins.PluginMainClassType;
 import org.pentaho.di.core.plugins.PluginTypeInterface;
+import org.pentaho.di.core.plugins.XMLPluginTypeInterface;
 
 /**
  * This class represents the extension point plugin type.
@@ -40,7 +40,7 @@ import org.pentaho.di.core.plugins.PluginTypeInterface;
  */
 @PluginMainClassType( ExtensionPointInterface.class )
 @PluginAnnotationType( ExtensionPoint.class )
-public class ExtensionPointPluginType extends BasePluginType implements PluginTypeInterface {
+public class ExtensionPointPluginType extends BasePluginType implements PluginTypeInterface, XMLPluginTypeInterface {
   private static ExtensionPointPluginType pluginType;
 
   private ExtensionPointPluginType() {
@@ -54,29 +54,40 @@ public class ExtensionPointPluginType extends BasePluginType implements PluginTy
     }
     return pluginType;
   }
+  
+  @Override
+  public String getPopulateFoldersPath() {
+    return "extension_points";
+  }
 
   @Override
-  protected String getXmlPluginFile() {
+  public String getAlternativePluginFile() {
+    return null;
+  }
+
+  @Override
+  public boolean isReturn() {
+    return false;
+  }
+  
+  @Override
+  public String getXmlPluginFile() {
     return Const.XML_FILE_KETTLE_EXTENSION_POINTS;
   }
 
   @Override
-  protected String getMainTag() {
+  public String getMainTag() {
     return "extension-points";
   }
 
   @Override
-  protected String getSubTag() {
+  public String getSubTag() {
     return "extension-point";
   }
 
   @Override
-  protected String getPath() {
+  public String getPath() {
     return "./";
-  }
-
-  @Override
-  protected void registerXmlPlugins() throws KettlePluginException {
   }
 
   public String[] getNaturalCategoriesOrder() {
@@ -146,4 +157,5 @@ public class ExtensionPointPluginType extends BasePluginType implements PluginTy
   protected String extractSuggestion( Annotation annotation ) {
     return null;
   }
+  
 }

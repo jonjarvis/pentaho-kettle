@@ -22,8 +22,10 @@
 
 package org.pentaho.di.core.plugins;
 
+import java.lang.annotation.Annotation;
 import java.net.URL;
 import java.util.List;
+import java.util.Map;
 
 import org.pentaho.di.core.exception.KettlePluginException;
 
@@ -49,6 +51,11 @@ public interface PluginTypeInterface {
   void addObjectType( Class<?> clz, String xmlNodeName );
 
   /**
+   * @return Gets additional runtime object types associated with the plugins
+   */
+  Map<Class<?>, String> getAdditionalRuntimeObjectTypes();
+  
+  /**
    * @return The ID of this plugin type
    */
   String getId();
@@ -58,11 +65,17 @@ public interface PluginTypeInterface {
    */
   String getName();
 
+  
+  /**
+   * @return The class of the annotation for the Plugin Type
+   */
+  Class<? extends Annotation> getAnnotationClass();
+  
   /**
    * @return The places where we should look for plugins, both as plugin.xml and as
    */
   List<PluginFolderInterface> getPluginFolders();
-
+  
   /**
    *
    * @throws KettlePluginException

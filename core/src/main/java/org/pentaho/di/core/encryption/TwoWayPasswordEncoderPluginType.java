@@ -34,6 +34,7 @@ import org.pentaho.di.core.plugins.PluginAnnotationType;
 import org.pentaho.di.core.plugins.PluginFolderInterface;
 import org.pentaho.di.core.plugins.PluginMainClassType;
 import org.pentaho.di.core.plugins.PluginTypeInterface;
+import org.pentaho.di.core.plugins.XMLPluginTypeInterface;
 import org.pentaho.di.core.vfs.KettleVFS;
 import org.pentaho.di.core.xml.XMLHandler;
 import org.w3c.dom.Document;
@@ -48,7 +49,7 @@ import org.w3c.dom.Node;
 
 @PluginMainClassType( TwoWayPasswordEncoderInterface.class )
 @PluginAnnotationType( TwoWayPasswordEncoderPlugin.class )
-public class TwoWayPasswordEncoderPluginType extends BasePluginType implements PluginTypeInterface {
+public class TwoWayPasswordEncoderPluginType extends BasePluginType implements PluginTypeInterface, XMLPluginTypeInterface {
 
   private static TwoWayPasswordEncoderPluginType twoWayPasswordEncoderPluginType;
 
@@ -63,32 +64,43 @@ public class TwoWayPasswordEncoderPluginType extends BasePluginType implements P
     }
     return twoWayPasswordEncoderPluginType;
   }
+  
+  @Override
+  public String getPopulateFoldersPath() {
+    return "passwordencoder";
+  }
 
   @Override
-  protected String getXmlPluginFile() {
+  public String getPath() {
+    return null;
+  }
+
+  @Override
+  public String getXmlPluginFile() {
     return Const.XML_FILE_KETTLE_PASSWORD_ENCODER_PLUGINS;
   }
 
   @Override
-  protected String getAlternativePluginFile() {
+  public String getAlternativePluginFile() {
     return Const.KETTLE_PASSWORD_ENCODER_PLUGINS_FILE;
   }
 
   @Override
-  protected String getMainTag() {
+  public String getMainTag() {
     return "password-encoder-plugins";
   }
 
   @Override
-  protected String getSubTag() {
+  public String getSubTag() {
     return "password-encoder-plugin";
   }
 
   @Override
-  protected boolean isReturn() {
+  public boolean isReturn() {
     return true;
   }
 
+  /*
   @Override
   protected void registerXmlPlugins() throws KettlePluginException {
     for ( PluginFolderInterface folder : pluginFolders ) {
@@ -113,6 +125,7 @@ public class TwoWayPasswordEncoderPluginType extends BasePluginType implements P
       }
     }
   }
+  */
 
   @Override
   protected String extractCategory( Annotation annotation ) {
@@ -177,4 +190,5 @@ public class TwoWayPasswordEncoderPluginType extends BasePluginType implements P
   protected String extractClassLoaderGroup( Annotation annotation ) {
     return ( (TwoWayPasswordEncoderPlugin) annotation ).classLoaderGroup();
   }
+
 }

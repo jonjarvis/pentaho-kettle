@@ -45,7 +45,7 @@ public class LifecyclePluginType extends BasePluginType implements PluginTypeInt
 
   private LifecyclePluginType() {
     super( LifecyclePlugin.class, "LIFECYCLE LISTENERS", "Lifecycle listener plugin type" );
-    populateFolders( "repositories" );
+    populateFolders( null );
   }
 
   public static LifecyclePluginType getInstance() {
@@ -55,18 +55,6 @@ public class LifecyclePluginType extends BasePluginType implements PluginTypeInt
     return pluginType;
   }
 
-  /**
-   * Scan & register internal step plugins
-   */
-  @Override
-  protected void registerNatives() throws KettlePluginException {
-    // Up until now, we have no natives.
-  }
-
-  @Override
-  protected void registerXmlPlugins() throws KettlePluginException {
-    // Not supported yet.
-  }
 
   @Override
   protected String extractCategory( Annotation annotation ) {

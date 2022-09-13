@@ -23,16 +23,12 @@
 package org.pentaho.di.core.plugins;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.InputStream;
 import java.lang.annotation.Annotation;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.net.URLDecoder;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -40,25 +36,16 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import com.google.common.annotations.VisibleForTesting;
-import org.apache.commons.io.IOUtils;
 import org.apache.commons.vfs2.FileObject;
-import org.apache.commons.vfs2.FileSelectInfo;
-import org.apache.commons.vfs2.FileSelector;
 import org.pentaho.di.core.Const;
-import org.pentaho.di.core.exception.KettleXMLException;
-import org.pentaho.di.core.util.Utils;
 import org.pentaho.di.core.exception.KettlePluginException;
 import org.pentaho.di.core.logging.DefaultLogLevel;
 import org.pentaho.di.core.logging.LogChannel;
 import org.pentaho.di.core.logging.LogLevel;
-import org.pentaho.di.core.vfs.KettleVFS;
-import org.pentaho.di.core.xml.XMLHandler;
+import org.pentaho.di.core.util.Utils;
 import org.pentaho.di.i18n.BaseMessages;
 import org.pentaho.di.i18n.GlobalMessageUtil;
 import org.scannotation.AnnotationDB;
-import org.w3c.dom.Document;
-import org.w3c.dom.Node;
 
 public abstract class BasePluginType implements PluginTypeInterface {
   protected static final Class<?> PKG = BasePluginType.class; // for i18n purposes, needed by Translator2!!
@@ -75,9 +62,9 @@ public abstract class BasePluginType implements PluginTypeInterface {
 
   protected boolean searchLibDir;
 
-  Class<? extends java.lang.annotation.Annotation> pluginClass;
+  Class<? extends Annotation> pluginClass;
 
-  public BasePluginType( Class<? extends java.lang.annotation.Annotation> pluginClass ) {
+  public BasePluginType( Class<? extends Annotation> pluginClass ) {
     this.pluginFolders = new ArrayList<>();
     this.log = new LogChannel( "Plugin type" );
 
@@ -91,64 +78,10 @@ public abstract class BasePluginType implements PluginTypeInterface {
    * @param name
    *          the name of the plugin
    */
-  public BasePluginType( Class<? extends java.lang.annotation.Annotation> pluginClass, String id, String name ) {
+  public BasePluginType( Class<? extends Annotation> pluginClass, String id, String name ) {
     this( pluginClass );
     this.id = id;
     this.name = name;
-  }
-
-  /**
-   * This method return parameter for registerNatives() method
-   *
-   * @return XML plugin file
-   */
-  protected String getXmlPluginFile() {
-    return null;
-  }
-
-  /**
-   * This method return parameter for registerNatives() method
-   *
-   * @return Alternative XML plugin file
-   */
-  protected String getAlternativePluginFile() {
-    return null;
-  }
-
-  /**
-   * This method return parameter for registerPlugins() method
-   *
-   * @return Main XML tag
-   */
-  protected String getMainTag() {
-    return null;
-  }
-
-  /**
-   * This method return parameter for registerPlugins() method
-   *
-   * @return Subordinate XML tag
-   */
-  protected String getSubTag() {
-    return null;
-  }
-
-  /**
-   * This method return parameter for registerPlugins() method
-   *
-   * @return Path
-   */
-  protected String getPath() {
-    return null;
-  }
-
-  /**
-   * This method return parameter for registerNatives() method
-   *
-   * @return Flag ("return;" or "throw exception")
-   */
-  protected boolean isReturn() {
-    return false;
   }
 
   /**
@@ -180,92 +113,10 @@ public abstract class BasePluginType implements PluginTypeInterface {
    */
   @Override
   public void searchPlugins() throws KettlePluginException {
-    registerNatives();
-    registerPluginJars();
-    registerXmlPlugins();
+    //registerNatives();
+    //registerPluginJars();
   }
-
-  protected void registerNatives() throws KettlePluginException {
-    // Scan the native steps...
-    //
-    String xmlFile = getXmlPluginFile();
-    String alternative = null;
-    if ( !Utils.isEmpty( getAlternativePluginFile() ) ) {
-      alternative = getPropertyExternal( getAlternativePluginFile(), null );
-      if ( !Utils.isEmpty( alternative ) ) {
-        xmlFile = alternative;
-      }
-    }
-
-    // Load the plugins for this file...
-    //
-    InputStream inputStream = null;
-    try {
-      inputStream = getResAsStreamExternal( xmlFile );
-      if ( inputStream == null ) {
-        inputStream = getResAsStreamExternal( "/" + xmlFile );
-      }
-
-      if ( !Utils.isEmpty( getAlternativePluginFile() ) && inputStream == null && !Utils.isEmpty( alternative ) ) {
-        // Retry to load a regular file...
-        try {
-          inputStream = getFileInputStreamExternal( xmlFile );
-        } catch ( Exception e ) {
-          throw new KettlePluginException( "Unable to load native plugins '" + xmlFile + "'", e );
-        }
-      }
-
-      if ( inputStream == null ) {
-        if ( isReturn() ) {
-          return;
-        } else {
-          throw new KettlePluginException( "Unable to find native plugins definition file: " + xmlFile );
-        }
-      }
-
-      registerPlugins( inputStream );
-
-    } catch ( KettleXMLException e ) {
-      throw new KettlePluginException( "Unable to read the kettle XML config file: " + xmlFile, e );
-    } finally {
-      IOUtils.closeQuietly( inputStream );
-    }
-  }
-
-  @VisibleForTesting
-  protected String getPropertyExternal( String key, String def ) {
-    return System.getProperty( key, def );
-  }
-
-  @VisibleForTesting
-  protected InputStream getResAsStreamExternal( String name ) {
-    return getClass().getResourceAsStream( name );
-  }
-
-  @VisibleForTesting
-  protected InputStream getFileInputStreamExternal( String name ) throws FileNotFoundException {
-    return new FileInputStream( name );
-  }
-
-  /**
-   * This method registers plugins from the InputStream with the XML Resource
-   *
-   * @param inputStream
-   * @throws KettlePluginException
-   * @throws KettleXMLException
-   */
-  protected void registerPlugins( InputStream inputStream ) throws KettlePluginException, KettleXMLException {
-    Document document = XMLHandler.loadXMLFile( inputStream, null, true, false );
-
-    Node repsNode = XMLHandler.getSubNode( document, getMainTag() );
-    List<Node> repsNodes = XMLHandler.getNodes( repsNode, getSubTag() );
-
-    for ( Node repNode : repsNodes ) {
-      registerPluginFromXmlResource( repNode, getPath(), this.getClass(), true, null );
-    }
-  }
-
-  protected abstract void registerXmlPlugins() throws KettlePluginException;
+ 
 
   /**
    * @return the id
@@ -283,6 +134,11 @@ public abstract class BasePluginType implements PluginTypeInterface {
     this.id = id;
   }
 
+  
+  public Class<? extends Annotation> getAnnotationClass() {
+    return pluginClass;
+  }
+  
   /**
    * @return the name
    */
@@ -377,6 +233,7 @@ public abstract class BasePluginType implements PluginTypeInterface {
     }
   }
 
+  /*
   protected List<JarFileAnnotationPlugin> findAnnotatedClassFiles( String annotationClassName ) {
     JarFileCache jarFileCache = JarFileCache.getInstance();
     List<JarFileAnnotationPlugin> classFiles = new ArrayList<>();
@@ -422,37 +279,8 @@ public abstract class BasePluginType implements PluginTypeInterface {
     }
     return classFiles;
   }
-
-  protected List<FileObject> findPluginXmlFiles( String folder ) {
-
-    return findPluginFiles( folder, ".*\\/plugin\\.xml$" );
-  }
-
-  protected List<FileObject> findPluginFiles( String folder, final String regex ) {
-
-    List<FileObject> list = new ArrayList<>();
-    try {
-      FileObject folderObject = KettleVFS.getFileObject( folder );
-      FileObject[] files = folderObject.findFiles( new FileSelector() {
-
-        @Override
-        public boolean traverseDescendents( FileSelectInfo fileSelectInfo ) throws Exception {
-          return true;
-        }
-
-        @Override
-        public boolean includeFile( FileSelectInfo fileSelectInfo ) throws Exception {
-          return fileSelectInfo.getFile().toString().matches( regex );
-        }
-      } );
-      if ( files != null ) {
-        Collections.addAll( list, files );
-      }
-    } catch ( Exception e ) {
-      // ignore this: unknown folder, insufficient permissions, etc
-    }
-    return list;
-  }
+  
+  */
 
   /**
    * This method allows for custom registration of plugins that are on the main classpath. This was originally created
@@ -484,108 +312,13 @@ public abstract class BasePluginType implements PluginTypeInterface {
     registry.registerPlugin( pluginType, stepPlugin );
   }
 
-  protected PluginInterface registerPluginFromXmlResource( Node pluginNode, String path,
-    Class<? extends PluginTypeInterface> pluginType, boolean nativePlugin, URL pluginFolder ) throws KettlePluginException {
-    try {
-
-      String idAttr = XMLHandler.getTagAttribute( pluginNode, "id" );
-      String description = getTagOrAttribute( pluginNode, "description" );
-      String iconfile = getTagOrAttribute( pluginNode, "iconfile" );
-      String tooltip = getTagOrAttribute( pluginNode, "tooltip" );
-      String category = getTagOrAttribute( pluginNode, "category" );
-      String classname = getTagOrAttribute( pluginNode, "classname" );
-      String errorHelpfile = getTagOrAttribute( pluginNode, "errorhelpfile" );
-      String documentationUrl = getTagOrAttribute( pluginNode, "documentation_url" );
-      String casesUrl = getTagOrAttribute( pluginNode, "cases_url" );
-      String forumUrl = getTagOrAttribute( pluginNode, "forum_url" );
-      String suggestion = getTagOrAttribute( pluginNode, "suggestion" );
-
-      Node libsnode = XMLHandler.getSubNode( pluginNode, "libraries" );
-      int nrlibs = XMLHandler.countNodes( libsnode, "library" );
-
-      List<String> jarFiles = new ArrayList<>();
-      if ( path != null ) {
-        for ( int j = 0; j < nrlibs; j++ ) {
-          Node libnode = XMLHandler.getSubNodeByNr( libsnode, "library", j );
-          String jarfile = XMLHandler.getTagAttribute( libnode, "name" );
-          jarFiles.add( new File( path + Const.FILE_SEPARATOR + jarfile ).getAbsolutePath() );
-        }
-      }
-
-      // Localized categories, descriptions and tool tips
-      //
-      Map<String, String> localizedCategories = readPluginLocale( pluginNode, "localized_category", "category" );
-      category = getAlternativeTranslation( category, localizedCategories );
-
-      Map<String, String> localDescriptions =
-        readPluginLocale( pluginNode, "localized_description", "description" );
-      description = getAlternativeTranslation( description, localDescriptions );
-      description += addDeprecation( category );
-
-      suggestion = getAlternativeTranslation( suggestion, localDescriptions );
-
-      Map<String, String> localizedTooltips = readPluginLocale( pluginNode, "localized_tooltip", "tooltip" );
-      tooltip = getAlternativeTranslation( tooltip, localizedTooltips );
-
-      String iconFilename = ( path == null ) ? iconfile : path + Const.FILE_SEPARATOR + iconfile;
-      String errorHelpFileFull = errorHelpfile;
-      if ( !Utils.isEmpty( errorHelpfile ) ) {
-        errorHelpFileFull = ( path == null ) ? errorHelpfile : path + Const.FILE_SEPARATOR + errorHelpfile;
-      }
-
-      Map<Class<?>, String> classMap = new HashMap<>();
-
-      PluginMainClassType mainClassTypesAnnotation = pluginType.getAnnotation( PluginMainClassType.class );
-      classMap.put( mainClassTypesAnnotation.value(), classname );
-
-      // process annotated extra types
-      PluginExtraClassTypes classTypesAnnotation = pluginType.getAnnotation( PluginExtraClassTypes.class );
-      if ( classTypesAnnotation != null ) {
-        for ( int i = 0; i < classTypesAnnotation.classTypes().length; i++ ) {
-          Class<?> classType = classTypesAnnotation.classTypes()[i];
-          String className = getTagOrAttribute( pluginNode, classTypesAnnotation.xmlNodeNames()[i] );
-
-          classMap.put( classType, className );
-        }
-      }
-
-      // process extra types added at runtime
-      Map<Class<?>, String> objectMap = getAdditionalRuntimeObjectTypes();
-      for ( Map.Entry<Class<?>, String> entry : objectMap.entrySet() ) {
-        String clzName = getTagOrAttribute( pluginNode, entry.getValue() );
-        classMap.put( entry.getKey(), clzName );
-      }
-
-      PluginInterface pluginInterface =
-        new Plugin(
-          idAttr.split( "," ), pluginType, mainClassTypesAnnotation.value(), category, description, tooltip,
-          iconFilename, false, nativePlugin, classMap, jarFiles, errorHelpFileFull, pluginFolder,
-          documentationUrl, casesUrl, forumUrl, suggestion );
-      registry.registerPlugin( pluginType, pluginInterface );
-
-      return pluginInterface;
-    } catch ( Exception e ) {
-      throw new KettlePluginException( BaseMessages.getString(
-        PKG, "BasePluginType.RuntimeError.UnableToReadPluginXML.PLUGIN0001" ), e );
-    }
-  }
-
-  protected String getTagOrAttribute( Node pluginNode, String tag ) {
-    String string = XMLHandler.getTagValue( pluginNode, tag );
-    if ( string == null ) {
-      string = XMLHandler.getTagAttribute( pluginNode, tag );
-    }
-    return string;
-  }
-
   /**
    *
    * @param input
    * @param localizedMap
    * @return
    */
-  protected String getAlternativeTranslation( String input, Map<String, String> localizedMap ) {
-
+  public static String getAlternativeTranslation( String input, Map<String, String> localizedMap ) {
     if ( Utils.isEmpty( input ) ) {
       return null;
     }
@@ -599,33 +332,12 @@ public abstract class BasePluginType implements PluginTypeInterface {
           return alt;
         }
       }
-      // Nothing found?
-      // Return the original!
-      //
+      // Nothing found? Return the original!
       return input;
     }
   }
 
-  protected Map<String, String> readPluginLocale( Node pluginNode, String localizedTag, String translationTag ) {
-    Map<String, String> map = new HashMap<>();
-
-    Node locTipsNode = XMLHandler.getSubNode( pluginNode, localizedTag );
-    int nrLocTips = XMLHandler.countNodes( locTipsNode, translationTag );
-    for ( int j = 0; j < nrLocTips; j++ ) {
-      Node locTipNode = XMLHandler.getSubNodeByNr( locTipsNode, translationTag, j );
-      if ( locTipNode != null ) {
-        String locale = XMLHandler.getTagAttribute( locTipNode, "locale" );
-        String locTip = XMLHandler.getNodeValue( locTipNode );
-
-        if ( !Utils.isEmpty( locale ) && !Utils.isEmpty( locTip ) ) {
-          map.put( locale.toLowerCase(), locTip );
-        }
-      }
-    }
-
-    return map;
-  }
-
+ 
   /**
    * Create a new URL class loader with the jar file specified. Also include all the jar files in the lib folder next to
    * that file.
@@ -661,30 +373,30 @@ public abstract class BasePluginType implements PluginTypeInterface {
     return new KettleURLClassLoader( urls.toArray( new URL[urls.size()] ), classLoader );
   }
 
-  protected abstract String extractID( java.lang.annotation.Annotation annotation );
+  protected abstract String extractID( Annotation annotation );
 
-  protected abstract String extractName( java.lang.annotation.Annotation annotation );
+  protected abstract String extractName( Annotation annotation );
 
-  protected abstract String extractDesc( java.lang.annotation.Annotation annotation );
+  protected abstract String extractDesc( Annotation annotation );
 
-  protected abstract String extractCategory( java.lang.annotation.Annotation annotation );
+  protected abstract String extractCategory( Annotation annotation );
 
-  protected abstract String extractImageFile( java.lang.annotation.Annotation annotation );
+  protected abstract String extractImageFile( Annotation annotation );
 
-  protected abstract boolean extractSeparateClassLoader( java.lang.annotation.Annotation annotation );
+  protected abstract boolean extractSeparateClassLoader( Annotation annotation );
 
-  protected abstract String extractI18nPackageName( java.lang.annotation.Annotation annotation );
+  protected abstract String extractI18nPackageName( Annotation annotation );
 
-  protected abstract String extractDocumentationUrl( java.lang.annotation.Annotation annotation );
+  protected abstract String extractDocumentationUrl( Annotation annotation );
 
-  protected abstract String extractSuggestion( java.lang.annotation.Annotation annotation );
+  protected abstract String extractSuggestion( Annotation annotation );
 
-  protected abstract String extractCasesUrl( java.lang.annotation.Annotation annotation );
+  protected abstract String extractCasesUrl( Annotation annotation );
 
-  protected abstract String extractForumUrl( java.lang.annotation.Annotation annotation );
+  protected abstract String extractForumUrl( Annotation annotation );
 
   @SuppressWarnings( "squid:S1172" )  //Overriding classes use the parameter
-  protected String extractClassLoaderGroup( java.lang.annotation.Annotation annotation ) {
+  protected String extractClassLoaderGroup( Annotation annotation ) {
     return null;
   }
 
@@ -698,6 +410,7 @@ public abstract class BasePluginType implements PluginTypeInterface {
     this.searchLibDir = transverseLibDirs;
   }
 
+  /*
   protected void registerPluginJars() throws KettlePluginException {
     List<JarFileAnnotationPlugin> jarFilePlugins = findAnnotatedClassFiles( pluginClass.getName() );
     for ( JarFileAnnotationPlugin jarFilePlugin : jarFilePlugins ) {
@@ -727,6 +440,7 @@ public abstract class BasePluginType implements PluginTypeInterface {
       }
     }
   }
+  */
 
   /**
    * Handle an annotated plugin
@@ -744,7 +458,7 @@ public abstract class BasePluginType implements PluginTypeInterface {
    * @throws KettlePluginException
    */
   @Override
-  public void handlePluginAnnotation( Class<?> clazz, java.lang.annotation.Annotation annotation,
+  public void handlePluginAnnotation( Class<?> clazz, Annotation annotation,
     List<String> libraries, boolean nativePluginType, URL pluginFolder ) throws KettlePluginException {
 
     String idList = extractID( annotation );
@@ -805,7 +519,7 @@ public abstract class BasePluginType implements PluginTypeInterface {
    */
   protected abstract void addExtraClasses( Map<Class<?>, String> classMap, Class<?> clazz, Annotation annotation );
 
-  private String addDeprecation( String category ) {
+  public static String addDeprecation( String category ) {
     String deprecated = BaseMessages.getString( PKG, "PluginRegistry.Category.Deprecated" );
     if ( deprecated.equals( category )  ) {
       return " (" + deprecated.toLowerCase() + ")";

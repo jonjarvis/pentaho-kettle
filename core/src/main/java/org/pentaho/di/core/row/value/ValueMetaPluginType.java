@@ -23,22 +23,15 @@
 package org.pentaho.di.core.row.value;
 
 import java.lang.annotation.Annotation;
-import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.vfs2.FileObject;
 import org.pentaho.di.core.Const;
-import org.pentaho.di.core.exception.KettlePluginException;
 import org.pentaho.di.core.plugins.BasePluginType;
 import org.pentaho.di.core.plugins.PluginAnnotationType;
-import org.pentaho.di.core.plugins.PluginFolderInterface;
 import org.pentaho.di.core.plugins.PluginMainClassType;
 import org.pentaho.di.core.plugins.PluginTypeInterface;
+import org.pentaho.di.core.plugins.XMLPluginTypeInterface;
 import org.pentaho.di.core.row.ValueMetaInterface;
-import org.pentaho.di.core.vfs.KettleVFS;
-import org.pentaho.di.core.xml.XMLHandler;
-import org.w3c.dom.Document;
-import org.w3c.dom.Node;
 
 /**
  * This class represents the value meta plugin type.
@@ -49,7 +42,7 @@ import org.w3c.dom.Node;
 
 @PluginMainClassType( ValueMetaInterface.class )
 @PluginAnnotationType( ValueMetaPlugin.class )
-public class ValueMetaPluginType extends BasePluginType implements PluginTypeInterface {
+public class ValueMetaPluginType extends BasePluginType implements PluginTypeInterface, XMLPluginTypeInterface {
 
   private static ValueMetaPluginType valueMetaPluginType;
 
@@ -64,50 +57,41 @@ public class ValueMetaPluginType extends BasePluginType implements PluginTypeInt
     }
     return valueMetaPluginType;
   }
+  
+  
+  @Override
+  public String getPopulateFoldersPath() {
+    return "valuemeta";
+  }
 
   @Override
-  protected String getXmlPluginFile() {
+  public String getPath() {
+    return null;
+  }
+
+  @Override
+  public boolean isReturn() {
+    return false;
+  }
+  
+  @Override
+  public String getXmlPluginFile() {
     return Const.XML_FILE_KETTLE_VALUEMETA_PLUGINS;
   }
 
   @Override
-  protected String getAlternativePluginFile() {
+  public String getAlternativePluginFile() {
     return Const.KETTLE_VALUEMETA_PLUGINS_FILE;
   }
 
   @Override
-  protected String getMainTag() {
+  public String getMainTag() {
     return "valuemeta-plugins";
   }
 
   @Override
-  protected String getSubTag() {
+  public String getSubTag() {
     return "valuemeta-plugin";
-  }
-
-  @Override
-  protected void registerXmlPlugins() throws KettlePluginException {
-    for ( PluginFolderInterface folder : pluginFolders ) {
-
-      if ( folder.isPluginXmlFolder() ) {
-        List<FileObject> pluginXmlFiles = findPluginXmlFiles( folder.getFolder() );
-        for ( FileObject file : pluginXmlFiles ) {
-
-          try {
-            Document document = XMLHandler.loadXMLFile( file );
-            Node pluginNode = XMLHandler.getSubNode( document, "plugin" );
-            if ( pluginNode != null ) {
-              registerPluginFromXmlResource( pluginNode, KettleVFS.getFilename( file.getParent() ), this
-                .getClass(), false, file.getParent().getURL() );
-            }
-          } catch ( Exception e ) {
-            // We want to report this plugin.xml error, perhaps an XML typo or something like that...
-            //
-            log.logError( "Error found while reading step plugin.xml file: " + file.getName().toString(), e );
-          }
-        }
-      }
-    }
   }
 
   @Override
@@ -173,4 +157,5 @@ public class ValueMetaPluginType extends BasePluginType implements PluginTypeInt
   protected String extractClassLoaderGroup( Annotation annotation ) {
     return ( (ValueMetaPlugin) annotation ).classLoaderGroup();
   }
+
 }

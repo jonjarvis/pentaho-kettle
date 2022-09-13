@@ -44,7 +44,7 @@ import org.w3c.dom.Node;
  */
 @PluginMainClassType( CartePluginInterface.class )
 @PluginAnnotationType( CarteServlet.class )
-public class CartePluginType extends BasePluginType implements PluginTypeInterface {
+public class CartePluginType extends BasePluginType implements PluginTypeInterface, XMLPluginTypeInterface {
 
   private static CartePluginType cartePluginType;
 
@@ -61,25 +61,26 @@ public class CartePluginType extends BasePluginType implements PluginTypeInterfa
   }
 
   @Override
-  protected String getXmlPluginFile() {
+  public String getXmlPluginFile() {
     return Const.XML_FILE_KETTLE_SERVLETS;
   }
 
   @Override
-  protected String getAlternativePluginFile() {
+  public String getAlternativePluginFile() {
     return Const.KETTLE_CORE_SERVLETS_FILE;
   }
 
   @Override
-  protected String getMainTag() {
+  public String getMainTag() {
     return "servlets";
   }
 
   @Override
-  protected String getSubTag() {
+  public String getSubTag() {
     return "servlet";
   }
 
+  /*
   protected void registerXmlPlugins() throws KettlePluginException {
     for ( PluginFolderInterface folder : pluginFolders ) {
 
@@ -104,7 +105,23 @@ public class CartePluginType extends BasePluginType implements PluginTypeInterfa
       }
     }
   }
+  */
 
+  @Override
+  public String getPopulateFoldersPath() {
+    return "servlets";
+  }
+
+  @Override
+  public String getPath() {
+    return null;
+  }
+
+  @Override
+  public boolean isReturn() {
+    return false;
+  }
+  
   @Override
   protected String extractCategory( Annotation annotation ) {
     return "";
@@ -168,4 +185,5 @@ public class CartePluginType extends BasePluginType implements PluginTypeInterfa
   protected String extractClassLoaderGroup( Annotation annotation ) {
     return ( (CarteServlet) annotation ).classLoaderGroup();
   }
+
 }

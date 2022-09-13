@@ -78,10 +78,6 @@ public abstract class BaseFragmentType extends BasePluginType {
     return new KettleURLClassLoader( new URL[]{ jarFileUrl }, classLoader );
   }
 
-  @Override protected void registerNatives() throws KettlePluginException { }
-
-  @Override protected void registerXmlPlugins() throws KettlePluginException { }
-
   @Override
   protected String extractName( Annotation annotation ) {
     return null;

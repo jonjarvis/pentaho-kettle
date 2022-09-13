@@ -36,7 +36,7 @@ import java.util.Map;
  */
 @PluginMainClassType( KettleLifecycleListener.class )
 @PluginAnnotationType( KettleLifecyclePlugin.class )
-public class KettleLifecyclePluginType extends BasePluginType implements PluginTypeInterface {
+public class KettleLifecyclePluginType extends BasePluginType implements PluginTypeInterface, XMLPluginTypeInterface {
 
   private static final KettleLifecyclePluginType pluginType = new KettleLifecyclePluginType();
 
@@ -52,28 +52,23 @@ public class KettleLifecyclePluginType extends BasePluginType implements PluginT
   }
 
   @Override
-  protected String getXmlPluginFile() {
+  public String getXmlPluginFile() {
     return Const.XML_FILE_KETTLE_LIFECYCLE_LISTENERS;
   }
 
   @Override
-  protected String getMainTag() {
+  public String getMainTag() {
     return "listeners";
   }
 
   @Override
-  protected String getSubTag() {
+  public String getSubTag() {
     return "listener";
   }
 
   @Override
-  protected boolean isReturn() {
+  public boolean isReturn() {
     return true;
-  }
-
-  @Override
-  protected void registerXmlPlugins() throws KettlePluginException {
-    // Not supported
   }
 
   @Override
@@ -142,5 +137,20 @@ public class KettleLifecyclePluginType extends BasePluginType implements PluginT
   @Override
   protected String extractClassLoaderGroup( Annotation annotation ) {
     return ( (KettleLifecyclePlugin) annotation ).classLoaderGroup();
+  }
+
+  @Override
+  public String getPopulateFoldersPath() {
+    return null;
+  }
+
+  @Override
+  public String getAlternativePluginFile() {
+    return null;
+  }
+
+  @Override
+  public String getPath() {
+    return null;
   }
 }

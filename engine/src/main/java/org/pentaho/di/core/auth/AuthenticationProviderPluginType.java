@@ -31,6 +31,7 @@ import org.pentaho.di.core.plugins.BasePluginType;
 import org.pentaho.di.core.plugins.PluginAnnotationType;
 import org.pentaho.di.core.plugins.PluginMainClassType;
 import org.pentaho.di.core.plugins.PluginTypeInterface;
+import org.pentaho.di.core.plugins.XMLPluginTypeInterface;
 
 /**
  * This class represents the authentication plugin type.
@@ -38,7 +39,7 @@ import org.pentaho.di.core.plugins.PluginTypeInterface;
  */
 @PluginMainClassType( AuthenticationProviderType.class )
 @PluginAnnotationType( AuthenticationProviderPlugin.class )
-public class AuthenticationProviderPluginType extends BasePluginType implements PluginTypeInterface {
+public class AuthenticationProviderPluginType extends BasePluginType implements PluginTypeInterface, XMLPluginTypeInterface {
   protected static AuthenticationProviderPluginType pluginType = new AuthenticationProviderPluginType();
 
   private AuthenticationProviderPluginType() {
@@ -49,29 +50,41 @@ public class AuthenticationProviderPluginType extends BasePluginType implements 
   public static AuthenticationProviderPluginType getInstance() {
     return pluginType;
   }
+  
+  @Override
+  public String getPopulateFoldersPath() {
+    return "authentication";
+  }
 
   @Override
-  protected String getXmlPluginFile() {
+  public String getAlternativePluginFile() {
+    return null;
+  }
+
+  @Override
+  public boolean isReturn() {
+    return false;
+  }
+  
+
+  @Override
+  public String getXmlPluginFile() {
     return Const.XML_FILE_KETTLE_AUTHENTICATION_PROVIDERS;
   }
 
   @Override
-  protected String getMainTag() {
+  public String getMainTag() {
     return "authentication-providers";
   }
 
   @Override
-  protected String getSubTag() {
+  public String getSubTag() {
     return "authentication-provider";
   }
 
   @Override
-  protected String getPath() {
+  public String getPath() {
     return "./";
-  }
-
-  @Override
-  protected void registerXmlPlugins() throws KettlePluginException {
   }
 
   public String[] getNaturalCategoriesOrder() {
@@ -136,4 +149,5 @@ public class AuthenticationProviderPluginType extends BasePluginType implements 
   protected String extractImageFile( Annotation annotation ) {
     return "";
   }
+
 }

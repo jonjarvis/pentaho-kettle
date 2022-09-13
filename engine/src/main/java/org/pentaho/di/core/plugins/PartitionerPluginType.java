@@ -44,7 +44,7 @@ import org.w3c.dom.Node;
  */
 @PluginMainClassType( Partitioner.class )
 @PluginAnnotationType( PartitionerPlugin.class )
-public class PartitionerPluginType extends BasePluginType implements PluginTypeInterface {
+public class PartitionerPluginType extends BasePluginType implements PluginTypeInterface, XMLPluginTypeInterface {
 
   private static PartitionerPluginType pluginType;
 
@@ -61,17 +61,17 @@ public class PartitionerPluginType extends BasePluginType implements PluginTypeI
   }
 
   @Override
-  protected String getXmlPluginFile() {
+  public String getXmlPluginFile() {
     return Const.XML_FILE_KETTLE_PARTITION_PLUGINS;
   }
 
   @Override
-  protected String getMainTag() {
+  public String getMainTag() {
     return "plugins";
   }
 
   @Override
-  protected String getSubTag() {
+  public String getSubTag() {
     return "plugin-partitioner";
   }
 
@@ -83,6 +83,8 @@ public class PartitionerPluginType extends BasePluginType implements PluginTypeI
     // annotations.
   }
 
+  //TODO: Fix this
+  /*
   protected void registerXmlPlugins() throws KettlePluginException {
     for ( PluginFolderInterface folder : pluginFolders ) {
 
@@ -106,7 +108,9 @@ public class PartitionerPluginType extends BasePluginType implements PluginTypeI
         }
       }
     }
+    
   }
+  */
 
   @Override
   protected String extractCategory( Annotation annotation ) {
@@ -170,5 +174,29 @@ public class PartitionerPluginType extends BasePluginType implements PluginTypeI
   @Override
   protected String extractClassLoaderGroup( Annotation annotation ) {
     return ( (PartitionerPlugin) annotation ).classLoaderGroup();
+  }
+
+  @Override
+  public String getPopulateFoldersPath() {
+    // TODO Auto-generated method stub
+    return "steps";
+  }
+
+  @Override
+  public String getAlternativePluginFile() {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
+  @Override
+  public String getPath() {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
+  @Override
+  public boolean isReturn() {
+    // TODO Auto-generated method stub
+    return false;
   }
 }

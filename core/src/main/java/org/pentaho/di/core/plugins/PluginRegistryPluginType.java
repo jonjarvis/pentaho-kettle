@@ -22,17 +22,16 @@
 
 package org.pentaho.di.core.plugins;
 
+import static java.lang.System.getProperty;
+
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 import org.pentaho.di.core.Const;
-import org.pentaho.di.core.exception.KettlePluginException;
 import org.pentaho.di.core.gui.GUIOption;
 import org.pentaho.di.core.util.Utils;
-
-import static java.lang.System.getProperty;
 
 /**
  * Plugins of this type can extend to capabilities of the PluginRegistry
@@ -42,7 +41,7 @@ import static java.lang.System.getProperty;
 @PluginMainClassType( PluginRegistryExtension.class )
 @PluginExtraClassTypes( classTypes = { GUIOption.class } )
 @PluginAnnotationType( RegistryPlugin.class )
-public class PluginRegistryPluginType extends BasePluginType implements PluginTypeInterface {
+public class PluginRegistryPluginType extends BasePluginType implements PluginTypeInterface, XMLPluginTypeInterface {
 
   private static PluginRegistryPluginType INSTANCE = new PluginRegistryPluginType();
 
@@ -56,7 +55,7 @@ public class PluginRegistryPluginType extends BasePluginType implements PluginTy
   }
 
   @Override
-  protected String getXmlPluginFile() {
+  public String getXmlPluginFile() {
     // This property is set by the import-export.bat/sh command line script to disable this native resource file from
     // processing.
     if ( !Utils.isEmpty( getProperty( "pentaho.disable.karaf", "" ) ) ) {
@@ -66,22 +65,27 @@ public class PluginRegistryPluginType extends BasePluginType implements PluginTy
   }
 
   @Override
-  protected String getMainTag() {
+  public String getPopulateFoldersPath() {
+    return "pluginRegistry";
+  }
+  
+  @Override
+  public String getMainTag() {
     return "registry-extensions";
   }
 
   @Override
-  protected String getSubTag() {
+  public String getSubTag() {
     return "registry-extension";
   }
 
   @Override
-  protected String getPath() {
+  public String getPath() {
     return "./";
   }
 
   @Override
-  protected boolean isReturn() {
+  public boolean isReturn() {
     return true;
   }
 
@@ -105,11 +109,6 @@ public class PluginRegistryPluginType extends BasePluginType implements PluginTy
 
   public static void registerNative( Class<?> clazz, String id, String name, String desc ) {
     natives.add( new NativePlugin( clazz, id, name, desc ) );
-  }
-
-  @Override
-  protected void registerXmlPlugins() throws KettlePluginException {
-    // To change body of implemented methods use File | Settings | File Templates.
   }
 
   @Override
@@ -169,6 +168,11 @@ public class PluginRegistryPluginType extends BasePluginType implements PluginTy
 
   @Override
   protected String extractSuggestion( Annotation annotation ) {
+    return null;
+  }
+
+  @Override
+  public String getAlternativePluginFile() {
     return null;
   }
 }

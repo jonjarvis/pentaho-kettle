@@ -21,13 +21,12 @@
  ******************************************************************************/
 package org.pentaho.di.core.plugins;
 
-import org.pentaho.di.core.Const;
-import org.pentaho.di.core.annotations.EnginePlugin;
-import org.pentaho.di.core.exception.KettlePluginException;
-import org.pentaho.di.engine.api.Engine;
-
 import java.lang.annotation.Annotation;
 import java.util.Map;
+
+import org.pentaho.di.core.Const;
+import org.pentaho.di.core.annotations.EnginePlugin;
+import org.pentaho.di.engine.api.Engine;
 
 /**
  * Plugin for interacting with {@link Engine} implementations.
@@ -35,7 +34,7 @@ import java.util.Map;
  */
 @PluginMainClassType( Engine.class )
 @PluginAnnotationType( EnginePlugin.class )
-public class EnginePluginType extends BasePluginType implements PluginTypeInterface {
+public class EnginePluginType extends BasePluginType implements PluginTypeInterface, XMLPluginTypeInterface {
 
   private static EnginePluginType enginePluginType;
 
@@ -51,33 +50,30 @@ public class EnginePluginType extends BasePluginType implements PluginTypeInterf
   }
 
   @Override
-  protected String getXmlPluginFile() {
+  public String getXmlPluginFile() {
     return Const.XML_FILE_KETTLE_ENGINES;
   }
 
   @Override
-  protected String getMainTag() {
+  public String getMainTag() {
     return "engines";
   }
 
   @Override
-  protected String getSubTag() {
+  public String getSubTag() {
     return "engine";
   }
 
   @Override
-  protected String getPath() {
+  public String getPath() {
     return "./";
   }
 
   @Override
-  protected boolean isReturn() {
+  public boolean isReturn() {
     return true;
   }
 
-  @Override
-  protected void registerXmlPlugins() throws KettlePluginException {
-  }
 
   @Override
   protected String extractCategory( Annotation annotation ) {
@@ -141,5 +137,16 @@ public class EnginePluginType extends BasePluginType implements PluginTypeInterf
   @Override
   protected String extractClassLoaderGroup( Annotation annotation ) {
     return ( (EnginePlugin) annotation ).classLoaderGroup();
+  }
+
+  @Override
+  public String getPopulateFoldersPath() {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
+  @Override
+  public String getAlternativePluginFile() {
+    return null;
   }
 }

@@ -22,25 +22,9 @@
 
 package org.pentaho.di.core.plugins;
 
-import org.pentaho.di.core.Const;
-import org.pentaho.di.core.exception.KettlePluginClassMapException;
-import org.pentaho.di.core.exception.KettlePluginException;
-import org.pentaho.di.core.logging.KettleLogStore;
-import org.pentaho.di.core.logging.LogChannel;
-import org.pentaho.di.core.logging.LogChannelInterface;
-import org.pentaho.di.core.logging.Metrics;
-import org.pentaho.di.core.row.RowBuffer;
-import org.pentaho.di.core.row.RowMeta;
-import org.pentaho.di.core.row.RowMetaInterface;
-import org.pentaho.di.core.row.value.ValueMetaString;
-import org.pentaho.di.core.util.EnvUtil;
-import org.pentaho.di.core.util.Utils;
-import org.pentaho.di.i18n.BaseMessages;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
@@ -53,6 +37,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -63,9 +48,26 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 
+import org.pentaho.di.core.Const;
+import org.pentaho.di.core.exception.KettlePluginClassMapException;
+import org.pentaho.di.core.exception.KettlePluginException;
+import org.pentaho.di.core.logging.LogChannel;
+import org.pentaho.di.core.logging.LogChannelInterface;
+import org.pentaho.di.core.logging.Metrics;
+import org.pentaho.di.core.plugins.registries.AnnotationSearchingPluginRegistryExtension;
+import org.pentaho.di.core.plugins.registries.ClassNamePluginRegistryExtension;
+import org.pentaho.di.core.plugins.registries.NativePluginRegistryExtension;
+import org.pentaho.di.core.row.RowBuffer;
+import org.pentaho.di.core.row.RowMeta;
+import org.pentaho.di.core.row.RowMetaInterface;
+import org.pentaho.di.core.row.value.ValueMetaString;
+import org.pentaho.di.core.util.EnvUtil;
+import org.pentaho.di.core.util.Utils;
+import org.pentaho.di.i18n.BaseMessages;
+
 /**
- * This singleton provides access to all the plugins in the Kettle universe.<br> It allows you to register types and
- * plugins, query plugin lists per category, list plugins per type, etc.<br>
+ * This singleton provides access to all the plugins in the Kettle universe.<br>
+ * It allows you to register types and plugins, query plugin lists per category, list plugins per type, etc.<br>
  *
  * @author matt
  */
@@ -75,11 +77,11 @@ public class PluginRegistry {
 
   private static final PluginRegistry pluginRegistry = new PluginRegistry();
 
-//  private static final List<PluginTypeInterface> pluginTypes = new ArrayList<>();
-//  private static final List<PluginRegistryExtension> extensions = new ArrayList<>();
-  private static final Set<PluginTypeInterface> pluginTypes = Collections.newSetFromMap( new ConcurrentHashMap<PluginTypeInterface, Boolean>() );
-  private static final Set<PluginRegistryExtension> extensions = Collections.newSetFromMap( new ConcurrentHashMap<PluginRegistryExtension, Boolean>() );
-  private static final ReentrantReadWriteLock staticLock = new ReentrantReadWriteLock();
+  private static final Set<PluginTypeInterface> pluginTypes =
+      Collections.newSetFromMap( new ConcurrentHashMap<PluginTypeInterface, Boolean>() );
+
+  //Changed to a linked hash map so order is maintained. extensions now managed under the lock
+  private final Set<PluginRegistryExtension> extensions = Collections.newSetFromMap( new LinkedHashMap<>() );
 
   private static final String SUPPLEMENTALS_SUFFIX = "-supplementals";
 
@@ -88,7 +90,8 @@ public class PluginRegistry {
   // the list of plugins
   private final Map<Class<? extends PluginTypeInterface>, Set<PluginInterface>> pluginMap = new HashMap<>();
 
-  private final Map<Class<? extends PluginTypeInterface>, Map<PluginInterface, URLClassLoader>> classLoaderMap = new HashMap<>();
+  private final Map<Class<? extends PluginTypeInterface>, Map<PluginInterface, URLClassLoader>> classLoaderMap =
+      new HashMap<>();
   private final Map<URLClassLoader, Set<PluginInterface>> inverseClassLoaderLookup = new HashMap<>();
   private final Map<String, URLClassLoader> classLoaderGroupsMap = new HashMap<>();
   private final Map<String, URLClassLoader> folderBasedClassLoaderMap = new HashMap<>();
@@ -100,7 +103,6 @@ public class PluginRegistry {
 
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
   private static final int WAIT_FOR_PLUGIN_TO_BE_AVAILABLE_LIMIT = 3000;
-
 
   /**
    * Initialize the registry, keep private to keep this a singleton
@@ -115,16 +117,18 @@ public class PluginRegistry {
     return pluginRegistry;
   }
 
-  private static Comparator<String> getNaturalCategoriesOrderComparator( Class<? extends PluginTypeInterface> pluginType ) {
+  private static Comparator<String>
+    getNaturalCategoriesOrderComparator( Class<? extends PluginTypeInterface> pluginType ) {
     PluginTypeCategoriesOrder naturalOrderAnnotation = pluginType.getAnnotation( PluginTypeCategoriesOrder.class );
     final String[] naturalOrder;
     if ( naturalOrderAnnotation != null ) {
       String[] naturalOrderKeys = naturalOrderAnnotation.getNaturalCategoriesOrder();
       Class<?> i18nClass = naturalOrderAnnotation.i18nPackageClass();
 
-      naturalOrder = Arrays.stream( naturalOrderKeys )
-        .map( key -> BaseMessages.getString( i18nClass, key ) )
-        .toArray( String[]::new );
+      naturalOrder =
+          Arrays.stream( naturalOrderKeys )
+              .map( key -> BaseMessages.getString( i18nClass, key ) )
+              .toArray( String[]::new );
     } else {
       naturalOrder = null;
     }
@@ -155,9 +159,8 @@ public class PluginRegistry {
       pluginMap.computeIfAbsent( pluginType, k -> new TreeSet<>( Plugin.nullStringComparator ) );
 
       // Keep track of the categories separately for performance reasons...
-      //
       categoryMap.computeIfAbsent( pluginType, k -> new TreeSet<>(
-        getNaturalCategoriesOrderComparator( pluginType ) ) );
+          getNaturalCategoriesOrderComparator( pluginType ) ) );
     } finally {
       lock.writeLock().unlock();
     }
@@ -220,7 +223,7 @@ public class PluginRegistry {
   }
 
   public void registerPlugin( Class<? extends PluginTypeInterface> pluginType, PluginInterface plugin )
-      throws KettlePluginException {
+    throws KettlePluginException {
     boolean changed = false; // Is this an add or an update?
     lock.writeLock().lock();
     try {
@@ -230,7 +233,8 @@ public class PluginRegistry {
 
       // Keep the list of plugins sorted by name...
       //
-      Set<PluginInterface> list = pluginMap.computeIfAbsent( pluginType, k -> new TreeSet<>( Plugin.nullStringComparator ) );
+      Set<PluginInterface> list =
+          pluginMap.computeIfAbsent( pluginType, k -> new TreeSet<>( Plugin.nullStringComparator ) );
 
       if ( !list.add( plugin ) ) {
         list.remove( plugin );
@@ -241,8 +245,9 @@ public class PluginRegistry {
       if ( !Utils.isEmpty( plugin.getCategory() ) ) {
         // Keep categories sorted in the natural order here too!
         //
-        categoryMap.computeIfAbsent( pluginType, k -> new TreeSet<>( getNaturalCategoriesOrderComparator( pluginType ) ) )
-          .add( plugin.getCategory() );
+        categoryMap
+            .computeIfAbsent( pluginType, k -> new TreeSet<>( getNaturalCategoriesOrderComparator( pluginType ) ) )
+            .add( plugin.getCategory() );
       }
     } finally {
       lock.writeLock().unlock();
@@ -276,18 +281,21 @@ public class PluginRegistry {
   }
 
   /**
-   * @param type The plugin type to query
+   * @param type
+   *          The plugin type to query
    * @return The list of plugins
    */
+  @SuppressWarnings( "unchecked" )
   public <T extends PluginInterface, K extends PluginTypeInterface> List<T> getPlugins( Class<K> type ) {
     List<T> result;
     lock.readLock().lock();
     try {
-      result = pluginMap.keySet().stream()
-        .filter( pi -> Const.classIsOrExtends( pi, type ) )
-        .flatMap( pi -> pluginMap.get( pi ).stream() )
-        .map( p -> (T) p )
-        .collect( Collectors.toList() );
+      result =
+          pluginMap.keySet().stream()
+              .filter( pi -> Const.classIsOrExtends( pi, type ) )
+              .flatMap( pi -> pluginMap.get( pi ).stream() )
+              .map( p -> (T) p )
+              .collect( Collectors.toList() );
     } finally {
       lock.readLock().unlock();
     }
@@ -297,8 +305,10 @@ public class PluginRegistry {
   /**
    * Get a plugin from the registry
    *
-   * @param pluginType The type of plugin to look for
-   * @param id             The ID to scan for
+   * @param pluginType
+   *          The type of plugin to look for
+   * @param id
+   *          The ID to scan for
    * @return the plugin or null if nothing was found.
    */
   public PluginInterface getPlugin( Class<? extends PluginTypeInterface> pluginType, String id ) {
@@ -308,23 +318,26 @@ public class PluginRegistry {
 
     // getPlugins() never returns null, see his method above
     return getPlugins( pluginType ).stream()
-      .filter( plugin -> plugin.matches( id ) )
-      .findFirst()
-      .orElse( null );
+        .filter( plugin -> plugin.matches( id ) )
+        .findFirst()
+        .orElse( null );
   }
 
   /**
    * Retrieve a list of plugins per category.
    *
-   * @param pluginType     The type of plugins to search
-   * @param pluginCategory The category to look in
+   * @param pluginType
+   *          The type of plugins to search
+   * @param pluginCategory
+   *          The category to look in
    * @return An unmodifiable list of plugins that belong to the specified type and category.
    */
   public <T extends PluginTypeInterface> List<PluginInterface> getPluginsByCategory( Class<T> pluginType,
       String pluginCategory ) {
-    List<PluginInterface> plugins = getPlugins( pluginType ).stream()
-      .filter( plugin -> plugin.getCategory() != null && plugin.getCategory().equals( pluginCategory ) )
-      .collect( Collectors.toList() );
+    List<PluginInterface> plugins =
+        getPlugins( pluginType ).stream()
+            .filter( plugin -> plugin.getCategory() != null && plugin.getCategory().equals( pluginCategory ) )
+            .collect( Collectors.toList() );
 
     return Collections.unmodifiableList( plugins );
   }
@@ -332,7 +345,8 @@ public class PluginRegistry {
   /**
    * Retrieve a list of all categories for a certain plugin type.
    *
-   * @param pluginType The plugin type to search categories for.
+   * @param pluginType
+   *          The plugin type to search categories for.
    * @return The list of categories for this plugin type. The list can be modified (sorted etc) but will not impact the
    *         registry in any way.
    */
@@ -348,9 +362,11 @@ public class PluginRegistry {
   /**
    * Load and instantiate the main class of the plugin specified.
    *
-   * @param plugin The plugin to load the main class for.
+   * @param plugin
+   *          The plugin to load the main class for.
    * @return The instantiated class
-   * @throws KettlePluginException In case there was a loading problem.
+   * @throws KettlePluginException
+   *           In case there was a loading problem.
    */
   public Object loadClass( PluginInterface plugin ) throws KettlePluginException {
     return loadClass( plugin, plugin.getMainType() );
@@ -359,14 +375,17 @@ public class PluginRegistry {
   /**
    * Load the class of the type specified for the plugin that owns the class of the specified object.
    *
-   * @param pluginType the type of plugin
-   * @param object     The object for which we want to search the class to find the plugin
-   * @param classType  The type of class to load
+   * @param pluginType
+   *          the type of plugin
+   * @param object
+   *          The object for which we want to search the class to find the plugin
+   * @param classType
+   *          The type of class to load
    * @return the instantiated class.
    * @throws KettlePluginException
    */
   public <T> T loadClass( Class<? extends PluginTypeInterface> pluginType, Object object, Class<T> classType )
-      throws KettlePluginException {
+    throws KettlePluginException {
     PluginInterface plugin = getPlugin( pluginType, object );
     if ( plugin == null ) {
       return null;
@@ -377,14 +396,17 @@ public class PluginRegistry {
   /**
    * Load the class of the type specified for the plugin with the ID specified.
    *
-   * @param pluginType the type of plugin
-   * @param pluginId   The plugin id to use
-   * @param classType  The type of class to load
+   * @param pluginType
+   *          the type of plugin
+   * @param pluginId
+   *          The plugin id to use
+   * @param classType
+   *          The type of class to load
    * @return the instantiated class.
    * @throws KettlePluginException
    */
   public <T> T loadClass( Class<? extends PluginTypeInterface> pluginType, String pluginId, Class<T> classType )
-      throws KettlePluginException {
+    throws KettlePluginException {
     PluginInterface plugin = getPlugin( pluginType, pluginId );
     if ( plugin == null ) {
       return null;
@@ -426,15 +448,21 @@ public class PluginRegistry {
   /**
    * Add a Class Mapping + factory for a plugin. This allows extra classes to be added to existing plugins.
    *
-   * @param pluginType Type of plugin
-   * @param tClass     Class to factory
-   * @param id         ID of the plugin to extend
-   * @param callable   Factory Callable
-   * @param <T>        Type of the object factoried
+   * @param pluginType
+   *          Type of plugin
+   * @param tClass
+   *          Class to factory
+   * @param id
+   *          ID of the plugin to extend
+   * @param callable
+   *          Factory Callable
+   * @param <T>
+   *          Type of the object factoried
    * @throws KettlePluginException
    */
   public <T> void addClassFactory( Class<? extends PluginTypeInterface> pluginType, Class<T> tClass, String id,
-                                   Callable<T> callable ) throws KettlePluginException {
+      Callable<T> callable )
+    throws KettlePluginException {
 
     String key = createSupplemantalKey( pluginType.getName(), id );
     SupplementalPlugin supplementalPlugin = (SupplementalPlugin) getPlugin( pluginType, key );
@@ -453,16 +481,19 @@ public class PluginRegistry {
   /**
    * Load and instantiate the plugin class specified
    *
-   * @param plugin      the plugin to load
-   * @param pluginClass the class to be loaded
+   * @param plugin
+   *          the plugin to load
+   * @param pluginClass
+   *          the class to be loaded
    * @return The instantiated class
-   * @throws KettlePluginException In case there was a class loading problem somehow
+   * @throws KettlePluginException
+   *           In case there was a class loading problem somehow
    */
   @SuppressWarnings( "unchecked" )
   public <T> T loadClass( PluginInterface plugin, Class<T> pluginClass ) throws KettlePluginException {
     if ( plugin == null ) {
       throw new KettlePluginException( BaseMessages.getString(
-          PKG, "PluginRegistry.RuntimeError.NoValidStepOrPlugin.PLUGINREGISTRY001" ) );
+        PKG, "PluginRegistry.RuntimeError.NoValidStepOrPlugin.PLUGINREGISTRY001" ) );
     }
 
     if ( plugin instanceof ClassLoadingPluginInterface ) {
@@ -470,7 +501,7 @@ public class PluginRegistry {
       if ( aClass == null ) {
         throw new KettlePluginClassMapException( BaseMessages
             .getString( PKG, "PluginRegistry.RuntimeError.NoValidClassRequested.PLUGINREGISTRY002", plugin.getName(),
-                pluginClass.getName() ) );
+              pluginClass.getName() ) );
       } else {
         return aClass;
       }
@@ -480,7 +511,9 @@ public class PluginRegistry {
         // Look for supplemental plugin supplying extra classes
         for ( String id : plugin.getIds() ) {
           try {
-            T aClass = loadClass( plugin.getPluginType(), createSupplemantalKey( plugin.getPluginType().getName(), id ), pluginClass );
+            T aClass =
+                loadClass( plugin.getPluginType(), createSupplemantalKey( plugin.getPluginType().getName(), id ),
+                  pluginClass );
             if ( aClass != null ) {
               return aClass;
             }
@@ -489,8 +522,8 @@ public class PluginRegistry {
           }
         }
         throw new KettlePluginClassMapException( BaseMessages.getString( PKG,
-            "PluginRegistry.RuntimeError.NoValidClassRequested.PLUGINREGISTRY002", plugin.getName(),
-            pluginClass.getName() ) );
+          "PluginRegistry.RuntimeError.NoValidClassRequested.PLUGINREGISTRY002", plugin.getName(),
+          pluginClass.getName() ) );
       }
 
       try {
@@ -507,17 +540,17 @@ public class PluginRegistry {
         return cl.newInstance();
       } catch ( ClassNotFoundException e ) {
         throw new KettlePluginException( BaseMessages.getString(
-            PKG, "PluginRegistry.RuntimeError.ClassNotFound.PLUGINREGISTRY003" ), e );
+          PKG, "PluginRegistry.RuntimeError.ClassNotFound.PLUGINREGISTRY003" ), e );
       } catch ( InstantiationException e ) {
         throw new KettlePluginException( BaseMessages.getString(
-            PKG, "PluginRegistry.RuntimeError.UnableToInstantiateClass.PLUGINREGISTRY004" ), e );
+          PKG, "PluginRegistry.RuntimeError.UnableToInstantiateClass.PLUGINREGISTRY004" ), e );
       } catch ( IllegalAccessException e ) {
         throw new KettlePluginException( BaseMessages.getString(
-            PKG, "PluginRegistry.RuntimeError.IllegalAccessToClass.PLUGINREGISTRY005" ), e );
+          PKG, "PluginRegistry.RuntimeError.IllegalAccessToClass.PLUGINREGISTRY005" ), e );
       } catch ( Throwable e ) {
         e.printStackTrace();
         throw new KettlePluginException( BaseMessages.getString(
-            PKG, "PluginRegistry.RuntimeError.UnExpectedErrorLoadingClass.PLUGINREGISTRY007" ), e );
+          PKG, "PluginRegistry.RuntimeError.UnExpectedErrorLoadingClass.PLUGINREGISTRY007" ), e );
       }
     }
   }
@@ -548,119 +581,98 @@ public class PluginRegistry {
   /**
    * This method registers plugin types and loads their respective plugins
    *
+   * The boolean parameter to this method is no longer used, as caching is now controlled by the
+   * AnnotationSearchingPluginRegistryExtension
+   *
    * @throws KettlePluginException
    */
   public static void init( boolean keepCache ) throws KettlePluginException {
     final PluginRegistry registry = getInstance();
 
-    log.snap( Metrics.METRIC_PLUGIN_REGISTRY_REGISTER_EXTENSIONS_START );
-
-    // Find pluginRegistry extensions
-    try {
-      registry.registerType( PluginRegistryPluginType.getInstance() );
-      List<PluginInterface> plugins = registry.getPlugins( PluginRegistryPluginType.class );
-      for ( PluginInterface extensionPlugin : plugins ) {
-        log.snap( Metrics.METRIC_PLUGIN_REGISTRY_REGISTER_EXTENSION_START, extensionPlugin.getName() );
-        PluginRegistryExtension extension = (PluginRegistryExtension) registry.loadClass( extensionPlugin );
-        extension.init( registry );
-        extensions.add( extension );
-        log.snap( Metrics.METRIC_PLUGIN_REGISTRY_REGISTER_EXTENSIONS_STOP, extensionPlugin.getName() );
-      }
-    } catch ( KettlePluginException e ) {
-      e.printStackTrace();
-    }
-    log.snap( Metrics.METRIC_PLUGIN_REGISTRY_REGISTER_EXTENSIONS_STOP );
+    long initStartTime = System.currentTimeMillis();
+    
+    //Initialize the registry extensions, responsible for loading the different plugins
+    registry.initExtensions();
 
     log.snap( Metrics.METRIC_PLUGIN_REGISTRY_PLUGIN_REGISTRATION_START );
     for ( final PluginTypeInterface pluginType : pluginTypes ) {
+
+      long typeStart = System.currentTimeMillis();
       log.snap( Metrics.METRIC_PLUGIN_REGISTRY_PLUGIN_TYPE_REGISTRATION_START, pluginType.getName() );
       registry.registerType( pluginType );
       log.snap( Metrics.METRIC_PLUGIN_REGISTRY_PLUGIN_TYPE_REGISTRATION_STOP, pluginType.getName() );
+      long typeFinish = System.currentTimeMillis();
+
+      System.out.println( String.format( "PluginRegistry.registerType( %s ): %d", pluginType.getClass().toString(),
+        typeFinish - typeStart ) );
+
     }
     log.snap( Metrics.METRIC_PLUGIN_REGISTRY_PLUGIN_REGISTRATION_STOP );
 
-    /*
-     * System.out.println(MetricsUtil.getDuration(log.getLogChannelId(),
-     * Metrics.METRIC_PLUGIN_REGISTRY_REGISTER_EXTENSIONS_START.getDescription()).get(0));
-     * System.out.println(MetricsUtil.getDuration(log.getLogChannelId(),
-     * Metrics.METRIC_PLUGIN_REGISTRY_PLUGIN_REGISTRATION_START.getDescription()).get(0)); long total=0; for
-     * (MetricsDuration duration : MetricsUtil.getDuration(log.getLogChannelId(),
-     * Metrics.METRIC_PLUGIN_REGISTRY_PLUGIN_TYPE_REGISTRATION_START.getDescription())) { total+=duration.getDuration();
-     * System.out.println("   - "+duration.toString()+"          Total="+total); }
-     */
+    System.out.println(
+      String.format( "PluginRegistry.init( %b ) : %d", keepCache, System.currentTimeMillis() - initStartTime ) );
 
-    // Clear the jar file cache so that we don't waste memory...
-    //
-    if ( !keepCache ) {
-      JarFileCache.getInstance().clear();
-    }
   }
 
-  private void registerType( PluginTypeInterface pluginType ) throws KettlePluginException {
+  
+  /**
+   * Initializes the PluginRegistryExtensions, which are responsible for managing
+   * the plugin types handled by the PluginRegistry
+   * @throws KettlePluginException
+   */
+  private void initExtensions() throws KettlePluginException {
+    
+    lock.writeLock().lock();
+    try {
+
+      // Add the default plugin registry extensions
+      if ( extensions.isEmpty() ) {
+        log.snap( Metrics.METRIC_PLUGIN_REGISTRY_REGISTER_EXTENSIONS_START );
+        
+        // Always load the NativePluginRegistryExtension
+        NativePluginRegistryExtension npre = new NativePluginRegistryExtension();
+        npre.init( this );
+        extensions.add( npre );
+
+        // Always load the AnnotationSearchingRegistryExtension
+        AnnotationSearchingPluginRegistryExtension aspre = new AnnotationSearchingPluginRegistryExtension();
+        aspre.init( this );
+        extensions.add( aspre );
+
+        // Load the special extension that processes the KETTLE_PLUGIN_CLASSES environment variable
+        if ( !Utils.isEmpty( EnvUtil.getSystemProperty( Const.KETTLE_PLUGIN_CLASSES ) ) ) {
+          ClassNamePluginRegistryExtension cnpre = new ClassNamePluginRegistryExtension();
+          cnpre.init( this );
+          extensions.add( cnpre );
+        }
+
+        // Register the PluginRegistryPluginType (this has to occur after the native extension is loaded)
+        registerType( PluginRegistryPluginType.getInstance() );
+
+        // Load a copy each registry extension found in the plugins and initialize it
+        List<PluginInterface> plugins = getPlugins( PluginRegistryPluginType.class );
+        for ( PluginInterface extensionPlugin : plugins ) {
+          log.snap( Metrics.METRIC_PLUGIN_REGISTRY_REGISTER_EXTENSION_START, extensionPlugin.getName() );
+          PluginRegistryExtension extension = (PluginRegistryExtension) loadClass( extensionPlugin );
+          extension.init( this );
+          extensions.add( extension );
+          log.snap( Metrics.METRIC_PLUGIN_REGISTRY_REGISTER_EXTENSIONS_STOP, extensionPlugin.getName() );
+        }
+
+      }
+      log.snap( Metrics.METRIC_PLUGIN_REGISTRY_REGISTER_EXTENSIONS_STOP );
+    } finally {
+      lock.writeLock().unlock();
+    }
+  }
+  
+  private void registerType( PluginTypeInterface pluginType ) {
     registerPluginType( pluginType.getClass() );
 
-    // Search plugins for this type...
-    //
-    long startScan = System.currentTimeMillis();
-    pluginType.searchPlugins();
-
+    // Search for the plugin type under each registry extension
     for ( PluginRegistryExtension ext : extensions ) {
       ext.searchForType( pluginType );
     }
-
-    Set<String> pluginClassNames = new HashSet<>();
-
-    // Scan for plugin classes to facilitate debugging etc.
-    //
-    String pluginClasses = EnvUtil.getSystemProperty( Const.KETTLE_PLUGIN_CLASSES );
-    if ( !Utils.isEmpty( pluginClasses ) ) {
-      String[] classNames = pluginClasses.split( "," );
-      Collections.addAll( pluginClassNames, classNames );
-    }
-
-    for ( String className : pluginClassNames ) {
-      try {
-        // What annotation does the plugin type have?
-        //
-        PluginAnnotationType annotationType = pluginType.getClass().getAnnotation( PluginAnnotationType.class );
-        if ( annotationType != null ) {
-          Class<? extends Annotation> annotationClass = annotationType.value();
-
-          Class<?> clazz = Class.forName( className );
-          Annotation annotation = clazz.getAnnotation( annotationClass );
-
-          if ( annotation != null ) {
-            // Register this one!
-            //
-            pluginType.handlePluginAnnotation( clazz, annotation, new ArrayList<>(), true, null );
-            LogChannel.GENERAL.logBasic( "Plugin class "
-                + className + " registered for plugin type '" + pluginType.getName() + "'" );
-          } else {
-            if ( KettleLogStore.isInitialized() && LogChannel.GENERAL.isDebug() ) {
-              LogChannel.GENERAL.logDebug( "Plugin class "
-                  + className + " doesn't contain annotation for plugin type '" + pluginType.getName() + "'" );
-            }
-          }
-        } else {
-          if ( KettleLogStore.isInitialized() && LogChannel.GENERAL.isDebug() ) {
-            LogChannel.GENERAL.logDebug( "Plugin class "
-                + className + " doesn't contain valid class for plugin type '" + pluginType.getName() + "'" );
-          }
-        }
-      } catch ( Exception e ) {
-        if ( KettleLogStore.isInitialized() ) {
-          LogChannel.GENERAL.logError( "Error registring plugin class from KETTLE_PLUGIN_CLASSES: "
-              + className + Const.CR + Const.getStackTracker( e ) );
-        }
-      }
-    }
-
-    if ( LogChannel.GENERAL.isDetailed() ) {
-      LogChannel.GENERAL.logDetailed( "Registered "
-          + getPlugins( pluginType.getClass() ).size() + " plugins of type '" + pluginType.getName() + "' in "
-          + ( System.currentTimeMillis() - startScan ) + "ms." );
-    }
-
   }
 
   /**
@@ -671,44 +683,49 @@ public class PluginRegistry {
    */
   public String getPluginId( Object pluginClass ) {
     return getPluginTypes().stream()
-      .map( pluginType -> getPluginId( pluginType, pluginClass ) )
-      .filter( Objects::nonNull )
-      .findFirst()
-      .orElse( null );
+        .map( pluginType -> getPluginId( pluginType, pluginClass ) )
+        .filter( Objects::nonNull )
+        .findFirst()
+        .orElse( null );
   }
 
   /**
    * Find the plugin ID based on the class
    *
-   * @param pluginType  the type of plugin
-   * @param pluginClass The class to look for
+   * @param pluginType
+   *          the type of plugin
+   * @param pluginClass
+   *          The class to look for
    * @return The ID of the plugin to which this class belongs (checks the plugin class maps) or null if nothing was
    *         found.
    */
   public String getPluginId( Class<? extends PluginTypeInterface> pluginType, Object pluginClass ) {
     String className = pluginClass.getClass().getName();
 
-    PluginInterface plugin = getPlugins( pluginType ).stream()
-      .filter( p -> p.getClassMap().values().contains( className ) )
-      .findFirst()
-      .orElse( null );
+    PluginInterface plugin =
+        getPlugins( pluginType ).stream()
+            .filter( p -> p.getClassMap().values().contains( className ) )
+            .findFirst()
+            .orElse( null );
 
     if ( plugin != null ) {
       return plugin.getIds()[0];
     }
 
     return extensions.stream()
-      .map( ext -> ext.getPluginId( pluginType, pluginClass ) )
-      .filter( Objects::nonNull )
-      .findFirst()
-      .orElse( null );
+        .map( ext -> ext.getPluginId( pluginType, pluginClass ) )
+        .filter( Objects::nonNull )
+        .findFirst()
+        .orElse( null );
   }
 
   /**
    * Retrieve the Plugin for a given class
    *
-   * @param pluginType  The type of plugin to search for
-   * @param pluginClass The class of this object is used to look around
+   * @param pluginType
+   *          The type of plugin to search for
+   * @param pluginClass
+   *          The class of this object is used to look around
    * @return the plugin or null if nothing could be found
    */
   public PluginInterface getPlugin( Class<? extends PluginTypeInterface> pluginType, Object pluginClass ) {
@@ -722,37 +739,43 @@ public class PluginRegistry {
   /**
    * Find the plugin ID based on the name of the plugin
    *
-   * @param pluginType the type of plugin
-   * @param pluginName The name to look for
+   * @param pluginType
+   *          the type of plugin
+   * @param pluginName
+   *          The name to look for
    * @return The plugin with the specified name or null if nothing was found.
    */
   public PluginInterface findPluginWithName( Class<? extends PluginTypeInterface> pluginType, String pluginName ) {
     return getPlugins( pluginType ).stream()
-      .filter( plugin -> plugin.getName().equals( pluginName ) )
-      .findFirst()
-      .orElse( null );
+        .filter( plugin -> plugin.getName().equals( pluginName ) )
+        .findFirst()
+        .orElse( null );
   }
 
   /**
    * Find the plugin ID based on the description of the plugin
    *
-   * @param pluginType        the type of plugin
-   * @param pluginDescription The description to look for
+   * @param pluginType
+   *          the type of plugin
+   * @param pluginDescription
+   *          The description to look for
    * @return The plugin with the specified description or null if nothing was found.
    */
   public PluginInterface findPluginWithDescription( Class<? extends PluginTypeInterface> pluginType,
       String pluginDescription ) {
     return getPlugins( pluginType ).stream()
-      .filter( plugin -> plugin.getDescription().equals( pluginDescription ) )
-      .findFirst()
-      .orElse( null );
+        .filter( plugin -> plugin.getDescription().equals( pluginDescription ) )
+        .findFirst()
+        .orElse( null );
   }
 
   /**
    * Find the plugin ID based on the name of the plugin
    *
-   * @param pluginType the type of plugin
-   * @param pluginId The name to look for
+   * @param pluginType
+   *          the type of plugin
+   * @param pluginId
+   *          The name to look for
    * @return The plugin with the specified name or null if nothing was found.
    */
   public PluginInterface findPluginWithId( Class<? extends PluginTypeInterface> pluginType, String pluginId ) {
@@ -781,22 +804,28 @@ public class PluginRegistry {
     row.addValueMeta( new ValueMetaString( BaseMessages.getString( PKG, "PluginRegistry.Information.Type.Label" ) ) );
     row.addValueMeta( new ValueMetaString( BaseMessages.getString( PKG, "PluginRegistry.Information.ID.Label" ) ) );
     row.addValueMeta( new ValueMetaString( BaseMessages.getString( PKG, "PluginRegistry.Information.Name.Label" ) ) );
-    row.addValueMeta( new ValueMetaString( BaseMessages.getString( PKG, "PluginRegistry.Information.Description.Label" ) ) );
-    row.addValueMeta( new ValueMetaString( BaseMessages.getString( PKG, "PluginRegistry.Information.Libraries.Label" ) ) );
-    row.addValueMeta( new ValueMetaString( BaseMessages.getString( PKG, "PluginRegistry.Information.ImageFile.Label" ) ) );
-    row.addValueMeta( new ValueMetaString( BaseMessages.getString( PKG, "PluginRegistry.Information.ClassName.Label" ) ) );
-    row.addValueMeta( new ValueMetaString( BaseMessages.getString( PKG, "PluginRegistry.Information.Category.Label" ) ) );
+    row.addValueMeta(
+      new ValueMetaString( BaseMessages.getString( PKG, "PluginRegistry.Information.Description.Label" ) ) );
+    row.addValueMeta(
+      new ValueMetaString( BaseMessages.getString( PKG, "PluginRegistry.Information.Libraries.Label" ) ) );
+    row.addValueMeta(
+      new ValueMetaString( BaseMessages.getString( PKG, "PluginRegistry.Information.ImageFile.Label" ) ) );
+    row.addValueMeta(
+      new ValueMetaString( BaseMessages.getString( PKG, "PluginRegistry.Information.ClassName.Label" ) ) );
+    row.addValueMeta(
+      new ValueMetaString( BaseMessages.getString( PKG, "PluginRegistry.Information.Category.Label" ) ) );
 
     return row;
   }
 
   /**
-   * @param pluginType the type of plugin to get information for
+   * @param pluginType
+   *          the type of plugin to get information for
    * @return a row buffer containing plugin information for the given plugin type
    * @throws KettlePluginException
    */
   public RowBuffer getPluginInformation( Class<? extends PluginTypeInterface> pluginType )
-      throws KettlePluginException {
+    throws KettlePluginException {
     RowBuffer rowBuffer = new RowBuffer( getPluginInformationRowMeta() );
     for ( PluginInterface plugin : getPlugins( pluginType ) ) {
 
@@ -820,10 +849,13 @@ public class PluginRegistry {
   /**
    * Load the class with a certain name using the class loader of certain plugin.
    *
-   * @param plugin    The plugin for which we want to use the class loader
-   * @param className The name of the class to load
+   * @param plugin
+   *          The plugin for which we want to use the class loader
+   * @param className
+   *          The name of the class to load
    * @return the name of the class
-   * @throws KettlePluginException In case there is something wrong
+   * @throws KettlePluginException
+   *           In case there is something wrong
    */
   @SuppressWarnings( "unchecked" )
   public <T> T getClass( PluginInterface plugin, String className ) throws KettlePluginException {
@@ -837,7 +869,7 @@ public class PluginRegistry {
         lock.writeLock().lock();
         try {
           Map<PluginInterface, URLClassLoader> classLoaders =
-            classLoaderMap.computeIfAbsent( plugin.getPluginType(), k -> new HashMap<>() );
+              classLoaderMap.computeIfAbsent( plugin.getPluginType(), k -> new HashMap<>() );
           ucl = classLoaders.get( plugin );
 
           if ( ucl == null ) {
@@ -868,10 +900,13 @@ public class PluginRegistry {
   /**
    * Load the class with a certain name using the class loader of certain plugin.
    *
-   * @param plugin    The plugin for which we want to use the class loader
-   * @param classType The type of class to load
+   * @param plugin
+   *          The plugin for which we want to use the class loader
+   * @param classType
+   *          The type of class to load
    * @return the name of the class
-   * @throws KettlePluginException In case there is something wrong
+   * @throws KettlePluginException
+   *           In case there is something wrong
    */
   @SuppressWarnings( "unchecked" )
   public <T> T getClass( PluginInterface plugin, T classType ) throws KettlePluginException {
@@ -882,17 +917,19 @@ public class PluginRegistry {
   /**
    * Create or retrieve the class loader for the specified plugin
    *
-   * @param plugin the plugin to use
+   * @param plugin
+   *          the plugin to use
    * @return The class loader
-   * @throws KettlePluginException In case there was a problem
-   *                               <p/>
-   *                               getClassLoader();
+   * @throws KettlePluginException
+   *           In case there was a problem
+   *           <p/>
+   *           getClassLoader();
    */
   public ClassLoader getClassLoader( PluginInterface plugin ) throws KettlePluginException {
 
     if ( plugin == null ) {
       throw new KettlePluginException( BaseMessages.getString(
-          PKG, "PluginRegistry.RuntimeError.NoValidStepOrPlugin.PLUGINREGISTRY001" ) );
+        PKG, "PluginRegistry.RuntimeError.NoValidStepOrPlugin.PLUGINREGISTRY001" ) );
     }
 
     try {
@@ -911,7 +948,7 @@ public class PluginRegistry {
           } else {
             // See if we can find a class loader to re-use.
             Map<PluginInterface, URLClassLoader> classLoaders =
-              classLoaderMap.computeIfAbsent( plugin.getPluginType(), k -> new HashMap<>() );
+                classLoaderMap.computeIfAbsent( plugin.getPluginType(), k -> new HashMap<>() );
             ucl = classLoaders.get( plugin );
 
             if ( ucl == null ) {
@@ -975,20 +1012,23 @@ public class PluginRegistry {
       }
     } catch ( MalformedURLException e ) {
       throw new KettlePluginException( BaseMessages.getString(
-          PKG, "PluginRegistry.RuntimeError.MalformedURL.PLUGINREGISTRY006" ), e );
+        PKG, "PluginRegistry.RuntimeError.MalformedURL.PLUGINREGISTRY006" ), e );
     } catch ( Throwable e ) {
       e.printStackTrace();
       throw new KettlePluginException( BaseMessages.getString(
-          PKG, "PluginRegistry.RuntimeError.UnExpectedCreatingClassLoader.PLUGINREGISTRY008" ), e );
+        PKG, "PluginRegistry.RuntimeError.UnExpectedCreatingClassLoader.PLUGINREGISTRY008" ), e );
     }
   }
 
   /**
    * Allows the tracking of plugins as they come and go.
    *
-   * @param typeToTrack extension of PluginTypeInterface to track.
-   * @param listener    receives notification when a plugin of the specified type is added/removed/modified
-   * @param <T>         extension of PluginTypeInterface
+   * @param typeToTrack
+   *          extension of PluginTypeInterface to track.
+   * @param listener
+   *          receives notification when a plugin of the specified type is added/removed/modified
+   * @param <T>
+   *          extension of PluginTypeInterface
    */
   public <T extends PluginTypeInterface> void addPluginListener( Class<T> typeToTrack, PluginTypeListener listener ) {
     lock.writeLock().lock();
@@ -1004,7 +1044,7 @@ public class PluginRegistry {
     lock.writeLock().lock();
     try {
       Map<PluginInterface, URLClassLoader> classLoaders =
-        classLoaderMap.computeIfAbsent( plugin.getPluginType(), k -> new HashMap<>() );
+          classLoaderMap.computeIfAbsent( plugin.getPluginType(), k -> new HashMap<>() );
       classLoaders.put( plugin, ucl );
     } finally {
       lock.writeLock().unlock();
@@ -1012,7 +1052,7 @@ public class PluginRegistry {
   }
 
   public PluginTypeInterface getPluginType( Class<? extends PluginTypeInterface> pluginTypeClass )
-      throws KettlePluginException {
+    throws KettlePluginException {
     try {
       // All these plugin type interfaces are singletons...
       // So we should call a static getInstance() method...
@@ -1081,20 +1121,21 @@ public class PluginRegistry {
       categoryMap.clear();
       parentClassloaderPatternMap.clear();
       listeners.clear();
-      JarFileCache.getInstance().clear();
     } finally {
       lock.writeLock().unlock();
     }
   }
 
-  public PluginInterface findPluginWithId( Class<? extends PluginTypeInterface> pluginType, String pluginId, boolean waitForPluginToBeAvailable ) {
-    PluginInterface pluginInterface = findPluginWithId(  pluginType,  pluginId );
+  public PluginInterface findPluginWithId( Class<? extends PluginTypeInterface> pluginType, String pluginId,
+      boolean waitForPluginToBeAvailable ) {
+    PluginInterface pluginInterface = findPluginWithId( pluginType, pluginId );
     return waitForPluginToBeAvailable && pluginInterface == null
-      ? waitForPluginToBeAvailable( pluginType,  pluginId, WAIT_FOR_PLUGIN_TO_BE_AVAILABLE_LIMIT )
-      : pluginInterface;
+        ? waitForPluginToBeAvailable( pluginType, pluginId, WAIT_FOR_PLUGIN_TO_BE_AVAILABLE_LIMIT )
+        : pluginInterface;
   }
 
-  private PluginInterface waitForPluginToBeAvailable( Class<? extends PluginTypeInterface> pluginType, String pluginId, int waitLimit ) {
+  private PluginInterface waitForPluginToBeAvailable( Class<? extends PluginTypeInterface> pluginType, String pluginId,
+      int waitLimit ) {
     int timeToSleep = 50;
     try {
       Thread.sleep( timeToSleep );
@@ -1105,10 +1146,10 @@ public class PluginRegistry {
       return null;
     }
     PluginInterface pluginInterface = findPluginWithId( pluginType, pluginId );
-    return  waitLimit <= 0 && pluginInterface == null
-      ? null
-      : pluginInterface != null
-        ? pluginInterface
-        : waitForPluginToBeAvailable( pluginType, pluginId, waitLimit );
+    return waitLimit <= 0 && pluginInterface == null
+        ? null
+        : pluginInterface != null
+            ? pluginInterface
+            : waitForPluginToBeAvailable( pluginType, pluginId, waitLimit );
   }
 }

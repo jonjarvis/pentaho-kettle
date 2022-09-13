@@ -31,6 +31,7 @@ import org.pentaho.di.core.plugins.BasePluginType;
 import org.pentaho.di.core.plugins.PluginAnnotationType;
 import org.pentaho.di.core.plugins.PluginMainClassType;
 import org.pentaho.di.core.plugins.PluginTypeInterface;
+import org.pentaho.di.core.plugins.XMLPluginTypeInterface;
 
 /**
  * This class represents the compression plugin type.
@@ -38,7 +39,7 @@ import org.pentaho.di.core.plugins.PluginTypeInterface;
  */
 @PluginMainClassType( CompressionProvider.class )
 @PluginAnnotationType( CompressionPlugin.class )
-public class CompressionPluginType extends BasePluginType implements PluginTypeInterface {
+public class CompressionPluginType extends BasePluginType implements PluginTypeInterface, XMLPluginTypeInterface {
   protected static CompressionPluginType pluginType;
 
   private CompressionPluginType() {
@@ -54,27 +55,38 @@ public class CompressionPluginType extends BasePluginType implements PluginTypeI
   }
 
   @Override
-  protected String getXmlPluginFile() {
+  public String getPopulateFoldersPath() {
+    return "compress";
+  }
+
+  @Override
+  public String getAlternativePluginFile() {
+    return null;
+  }
+
+  @Override
+  public boolean isReturn() {
+    return false;
+  }
+  
+  @Override
+  public String getXmlPluginFile() {
     return Const.XML_FILE_KETTLE_COMPRESSION_PROVIDERS;
   }
 
   @Override
-  protected String getMainTag() {
+  public String getMainTag() {
     return "compression-providers";
   }
 
   @Override
-  protected String getSubTag() {
+  public String getSubTag() {
     return "compression-provider";
   }
 
   @Override
-  protected String getPath() {
+  public String getPath() {
     return "./";
-  }
-
-  @Override
-  protected void registerXmlPlugins() throws KettlePluginException {
   }
 
   public String[] getNaturalCategoriesOrder() {
@@ -144,4 +156,5 @@ public class CompressionPluginType extends BasePluginType implements PluginTypeI
   protected String extractClassLoaderGroup( Annotation annotation ) {
     return ( (CompressionPlugin) annotation ).classLoaderGroup();
   }
+
 }

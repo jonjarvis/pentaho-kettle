@@ -27,7 +27,6 @@ import java.util.Map;
 
 import org.pentaho.di.core.Const;
 import org.pentaho.di.core.database.DatabaseInterface;
-import org.pentaho.di.core.exception.KettlePluginException;
 
 /**
  * This class represents the step plugin type.
@@ -37,7 +36,7 @@ import org.pentaho.di.core.exception.KettlePluginException;
  */
 @PluginMainClassType( DatabaseInterface.class )
 @PluginAnnotationType( DatabaseMetaPlugin.class )
-public class DatabasePluginType extends BasePluginType implements PluginTypeInterface {
+public class DatabasePluginType extends BasePluginType implements PluginTypeInterface, XMLPluginTypeInterface {
   private static DatabasePluginType pluginType;
 
   private DatabasePluginType() {
@@ -53,27 +52,34 @@ public class DatabasePluginType extends BasePluginType implements PluginTypeInte
   }
 
   @Override
-  protected String getXmlPluginFile() {
+  public String getPopulateFoldersPath() {
+    return "databases";
+  }
+  
+  @Override
+  public String getXmlPluginFile() {
     return Const.XML_FILE_KETTLE_DATABASE_TYPES;
   }
 
   @Override
-  protected String getMainTag() {
+  public String getMainTag() {
     return "database-types";
   }
 
   @Override
-  protected String getSubTag() {
+  public String getSubTag() {
     return "database-type";
   }
 
   @Override
-  protected String getPath() {
+  public String getPath() {
     return "./";
   }
-
+  
   @Override
-  protected void registerXmlPlugins() throws KettlePluginException {
+  public boolean isReturn() {
+    // TODO Auto-generated method stub
+    return false;
   }
 
   public String[] getNaturalCategoriesOrder() {
@@ -143,4 +149,11 @@ public class DatabasePluginType extends BasePluginType implements PluginTypeInte
   protected String extractClassLoaderGroup( Annotation annotation ) {
     return ( (DatabaseMetaPlugin) annotation ).classLoaderGroup();
   }
+
+  @Override
+  public String getAlternativePluginFile() {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
 }

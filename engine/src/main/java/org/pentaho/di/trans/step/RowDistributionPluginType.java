@@ -25,7 +25,6 @@ package org.pentaho.di.trans.step;
 import java.lang.annotation.Annotation;
 import java.util.Map;
 
-import org.pentaho.di.core.exception.KettlePluginException;
 import org.pentaho.di.core.plugins.BasePluginType;
 import org.pentaho.di.core.plugins.PluginAnnotationType;
 import org.pentaho.di.core.plugins.PluginMainClassType;
@@ -52,19 +51,6 @@ public class RowDistributionPluginType extends BasePluginType implements PluginT
       pluginType = new RowDistributionPluginType();
     }
     return pluginType;
-  }
-
-  /**
-   * Scan & register internal row distribution plugins
-   */
-  @Override
-  protected void registerNatives() throws KettlePluginException {
-    // None at this moment
-  }
-
-  @Override
-  protected void registerXmlPlugins() throws KettlePluginException {
-    // None at this moment
   }
 
   public String[] getNaturalCategoriesOrder() {
