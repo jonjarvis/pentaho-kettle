@@ -2,7 +2,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2002-2017 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2002-2022 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -22,9 +22,20 @@
 
 package org.pentaho.di.core.logging;
 
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyBoolean;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.io.OutputStream;
+
 import org.apache.commons.vfs2.FileContent;
 import org.apache.commons.vfs2.FileObject;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -32,18 +43,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
-
-import java.io.OutputStream;
-import java.util.concurrent.atomic.AtomicBoolean;
-
-import static org.junit.Assert.assertTrue;
-import static org.mockito.Matchers.anyBoolean;
-import static org.mockito.Matchers.any;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.when;
+import org.pentaho.di.core.KettleClientEnvironment;
+import org.pentaho.di.core.vfs.KettleVFS;
 
 @RunWith( MockitoJUnitRunner.class )
 public class LogChannelFileWriterTest {
@@ -62,8 +63,11 @@ public class LogChannelFileWriterTest {
 
   @Before
   public void setup() throws Exception {
+
     when( fileObject.getContent() ).thenReturn( fileContent );
     when( fileContent.getOutputStream( anyBoolean() ) ).thenReturn( outputStream );
+    
+    KettleClientEnvironment.init();
   }
 
   @Test
@@ -103,5 +107,19 @@ public class LogChannelFileWriterTest {
 
     verify( outputStream ).close();
 
+  }
+  
+  @Test
+  public void testStopLogger() throws Exception {
+    FileObject fo = KettleVFS.getFileObject( "ram://test_log_channel_file_writer" );
+    LogChannelFileWriter writer = new LogChannelFileWriter( id, fo, false );
+    writer.startLogging();
+    LoggingRegistry.getInstance().getLogChannelFileWriterBuffer( id ).getBuffer().append( "Test Case" );
+    writer.stopLogging();
+    writer.stopLogging();
+    
+    assertNull( LoggingRegistry.getInstance().getLogChannelFileWriterBuffer( id ) );
+    
+    
   }
 }

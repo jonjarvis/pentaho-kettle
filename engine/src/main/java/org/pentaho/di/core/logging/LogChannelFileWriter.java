@@ -46,8 +46,9 @@ public class LogChannelFileWriter {
   private AtomicBoolean active;
   private AtomicBoolean finished;
 
-  private KettleException exception;
-  protected OutputStream logFileOutputStream;
+  private Thread loggingThread;
+  private volatile KettleException exception;
+  protected volatile OutputStream logFileOutputStream;
 
   private LogChannelFileWriterBuffer buffer;
 
@@ -66,7 +67,8 @@ public class LogChannelFileWriter {
    * @throws KettleException
    *           in case the specified log file can't be created.
    */
-  public LogChannelFileWriter( String logChannelId, FileObject logFile, boolean appending, int pollingInterval ) throws KettleException {
+  public LogChannelFileWriter( String logChannelId, FileObject logFile, boolean appending, int pollingInterval )
+    throws KettleException {
     this.logChannelId = logChannelId;
     this.logFile = logFile;
     this.appending = appending;
@@ -107,17 +109,25 @@ public class LogChannelFileWriter {
    * error, the exception will be available with method getException().
    */
   public void startLogging() {
-
+    //Do not re-start logging if it has been stopped and the channel unregistered
+    if( finished.get() ) {
+      exception = new KettleException( "The log channel writer has already been stopped." );
+      return;
+    }
+    
     exception = null;
     active.set( true );
 
-    Thread thread = new Thread( new Runnable() {
-      public void run() {
+    loggingThread = new Thread( () -> {
         try {
 
           while ( active.get() && exception == null ) {
             flush();
-            Thread.sleep( pollingInterval );
+            try {
+              Thread.sleep( pollingInterval );
+            } catch( InterruptedException ie ) {
+              //Do nothing on an interrupt
+            }
           }
           // When done, save the last bit as well...
           flush();
@@ -125,24 +135,29 @@ public class LogChannelFileWriter {
         } catch ( Exception e ) {
           exception = new KettleException( "There was an error logging to file '" + logFile + "'", e );
         } finally {
-          try {
-            if ( logFileOutputStream != null ) {
-              logFileOutputStream.close();
-              logFileOutputStream = null;
-            }
-
-            if ( buffer != null ) {
-              LoggingRegistry.getInstance().removeLogChannelFileWriterBuffer( buffer.getLogChannelId() );
-            }
-          } catch ( Exception e ) {
-            exception = new KettleException( "There was an error closing log file file '" + logFile + "'", e );
-          } finally {
-            finished.set( true );
-          }
+          cleanup();
         }
+      } );
+    loggingThread.start();
+  }
+  
+  private void cleanup() {
+    try {
+      if ( logFileOutputStream != null ) {
+        logFileOutputStream.close();
+        logFileOutputStream = null;
       }
-    } );
-    thread.start();
+
+    } catch ( Exception e ) {
+      exception = new KettleException( "There was an error closing log file file '" + logFile + "'", e );
+    } finally {
+      
+      if ( buffer != null ) {
+        LoggingRegistry.getInstance().removeLogChannelFileWriterBuffer( buffer.getLogChannelId() );
+      }
+      
+      finished.set( true );
+    }
   }
 
   public synchronized void flush() {
@@ -157,15 +172,28 @@ public class LogChannelFileWriter {
   }
 
   public void stopLogging() {
-    flush();
-    active.set( false );
-    while ( !finished.get() ) {
-      Thread.yield();
-    }
 
-    if ( this.buffer != null ) {
-      LoggingRegistry.getInstance().removeLogChannelFileWriterBuffer( this.buffer.getLogChannelId() );
+    //logging has already been stopped
+    if( finished.get() ) {
+      return;
     }
+    
+    //Tells the logging thread to stop if logging if it was started
+    if( active.compareAndSet( true, false )) {
+     
+      //Trigger the logging thread interrupt
+      loggingThread.interrupt();
+      
+      //Now that active is set to false, wait for the logging thread to finish
+      while ( !finished.get() ) {
+        Thread.yield();
+      }
+      
+    } else {
+      //the thread was never started, startLogging() has not been called
+      cleanup();
+    }
+    
   }
 
   public KettleException getException() {
