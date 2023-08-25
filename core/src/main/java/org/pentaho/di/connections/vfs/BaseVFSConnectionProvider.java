@@ -2,7 +2,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2019 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2019-2022 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -22,9 +22,16 @@
 
 package org.pentaho.di.connections.vfs;
 
+import org.pentaho.di.connections.ConnectionDetails;
 import org.pentaho.di.connections.ConnectionManager;
+import org.pentaho.di.core.exception.KettleException;
+import org.pentaho.di.core.row.value.ValueMetaBase;
+import org.pentaho.di.core.util.Utils;
+import org.pentaho.di.core.variables.VariableSpace;
+import org.pentaho.di.core.variables.Variables;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 public abstract class BaseVFSConnectionProvider<T extends VFSConnectionDetails> implements VFSConnectionProvider<T> {
@@ -40,11 +47,35 @@ public abstract class BaseVFSConnectionProvider<T extends VFSConnectionDetails> 
     return (List<T>) connectionManagerSupplier.get().getConnectionDetailsByScheme( getKey() );
   }
 
-  @Override public T prepare( T connectionDetails ) {
+  @Override public T prepare( T connectionDetails ) throws KettleException {
     return connectionDetails;
   }
 
   @Override public String sanitizeName( String string ) {
     return string;
+  }
+
+  // Utility method to perform variable substitution on values
+  protected String getVar( String value, VariableSpace variableSpace ) {
+    if ( variableSpace != null ) {
+      return variableSpace.environmentSubstitute( value );
+    }
+    return value;
+  }
+
+  // Utility method to derive a boolean checkbox setting that may use variables instead
+  protected static boolean getBooleanValueOfVariable( VariableSpace space, String variableName, String defaultValue ) {
+    if ( !Utils.isEmpty( variableName ) ) {
+      String value = space.environmentSubstitute( variableName );
+      if ( !Utils.isEmpty( value ) ) {
+        Boolean b = ValueMetaBase.convertStringToBoolean( value );
+        return b != null && b;
+      }
+    }
+    return Objects.equals( Boolean.TRUE, ValueMetaBase.convertStringToBoolean( defaultValue ) );
+  }
+
+  protected VariableSpace getSpace( ConnectionDetails connectionDetails ) {
+    return connectionDetails.getSpace() == null ? Variables.getADefaultVariableSpace() : connectionDetails.getSpace();
   }
 }

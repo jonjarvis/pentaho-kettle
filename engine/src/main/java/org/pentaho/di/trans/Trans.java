@@ -3,7 +3,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2002-2020 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2002-2021 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -56,10 +56,12 @@ import com.google.common.base.Preconditions;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.vfs2.FileName;
 import org.apache.commons.vfs2.FileObject;
+import org.pentaho.di.base.IMetaFileCache;
 import org.pentaho.di.cluster.SlaveServer;
 import org.pentaho.di.core.BlockingBatchingRowSet;
 import org.pentaho.di.core.BlockingRowSet;
 import org.pentaho.di.core.Const;
+import org.pentaho.di.core.database.ConnectionPoolUtil;
 import org.pentaho.di.core.util.ConnectionUtil;
 import org.pentaho.di.core.util.Utils;
 import org.pentaho.di.core.Counter;
@@ -185,10 +187,14 @@ public class Trans implements VariableSpace, NamedParams, HasLogChannelInterface
    */
   protected LogChannelInterface log;
 
+  protected boolean loggingObjectInUse;
+
   /**
    * The log level.
    */
   protected LogLevel logLevel = LogLevel.BASIC;
+
+  private int logBufferStartLine;
 
   /**
    * The container object id.
@@ -564,6 +570,7 @@ public class Trans implements VariableSpace, NamedParams, HasLogChannelInterface
    * Instantiates a new transformation.
    */
   public Trans() {
+    setLoggingObjectInUse(true);
     status = new AtomicInteger();
 
     transListeners = Collections.synchronizedList( new ArrayList<TransListener>() );
@@ -587,6 +594,7 @@ public class Trans implements VariableSpace, NamedParams, HasLogChannelInterface
     counters = new Hashtable<>();
 
     extensionDataMap = new HashMap<>();
+
   }
 
   /**
@@ -631,6 +639,7 @@ public class Trans implements VariableSpace, NamedParams, HasLogChannelInterface
 
     this.log = new LogChannel( this, parent );
     this.logLevel = log.getLogLevel();
+    this.log.setHooks( this );
 
     if ( this.containerObjectId == null ) {
       this.containerObjectId = log.getContainerObjectId();
@@ -644,6 +653,15 @@ public class Trans implements VariableSpace, NamedParams, HasLogChannelInterface
         String.valueOf( transMeta.nrTransHops() ) ) );
     }
 
+  }
+
+  @Override
+  public boolean isLoggingObjectInUse() {
+    return loggingObjectInUse;
+  }
+
+  public void setLoggingObjectInUse( boolean inUse ) {
+    loggingObjectInUse = inUse;
   }
 
   /**
@@ -695,6 +713,7 @@ public class Trans implements VariableSpace, NamedParams, HasLogChannelInterface
     return transMeta.getName();
   }
 
+
   /**
    * Instantiates a new transformation using any of the provided parameters including the variable bindings, a
    * repository, a name, a repository directory name, and a filename. This is a multi-purpose method that supports
@@ -709,7 +728,12 @@ public class Trans implements VariableSpace, NamedParams, HasLogChannelInterface
    * @throws KettleException if any error occurs during loading, parsing, or creation of the transformation
    */
   public <Parent extends VariableSpace & NamedParams> Trans( Parent parent, Repository rep, String name, String dirname,
-                                                             String filename ) throws KettleException {
+                                                                String filename ) throws KettleException {
+    this( parent, rep, name, dirname, filename, null);
+  }
+
+  public <Parent extends VariableSpace & NamedParams> Trans( Parent parent, Repository rep, String name, String dirname,
+                                                             String filename, TransMeta parentTransMeta ) throws KettleException {
     this();
     try {
       if ( rep != null ) {
@@ -721,10 +745,11 @@ public class Trans implements VariableSpace, NamedParams, HasLogChannelInterface
             dirname ) );
         }
       } else {
-        transMeta = new TransMeta( filename, false );
+        transMeta = parentTransMeta != null ? parentTransMeta : new TransMeta( filename, false );
       }
 
-      this.log = LogChannel.GENERAL;
+      this.log = new LogChannel( LogChannel.GENERAL_SUBJECT, false, false );
+      this.log.setHooks( this );
 
       transMeta.initializeVariablesFrom( parent );
       initializeVariablesFrom( parent );
@@ -751,6 +776,9 @@ public class Trans implements VariableSpace, NamedParams, HasLogChannelInterface
    * @throws KettleException if the transformation could not be prepared (initialized)
    */
   public void execute( String[] arguments ) throws KettleException {
+
+    // Isolated method call to avoid unnecessary unit tests issues [BACKLOG-36316 / PDI-19357]
+    setInitialLogBufferStartLine();
     prepareExecution( arguments );
     startThreads();
   }
@@ -778,6 +806,13 @@ public class Trans implements VariableSpace, NamedParams, HasLogChannelInterface
     //
     if ( arguments != null ) {
       setArguments( arguments );
+    }
+
+    if ( parentTrans != null ) {
+      IMetaFileCache.setCacheInstance( transMeta, IMetaFileCache.initialize( parentTrans, log ) );
+    } else {
+      //If there is no parent, one of these still needs to be called to instantiate a new cache
+      IMetaFileCache.setCacheInstance( transMeta, IMetaFileCache.initialize( parentJob, log ) );
     }
 
     activateParameters();
@@ -1431,6 +1466,12 @@ public class Trans implements VariableSpace, NamedParams, HasLogChannelInterface
 
         try {
           shutdownHeartbeat( trans != null ? trans.heartbeat : null );
+          if ( trans != null && transMeta.getParent() == null && trans.parentJob == null && trans.parentTrans == null ) {
+            if ( log.isDetailed() && transMeta.getMetaFileCache() != null ) {
+              transMeta.getMetaFileCache().logCacheSummary( log );
+            }
+            transMeta.setMetaFileCache( null );
+          }
 
           ExtensionPointHandler.callExtensionPoint( log, KettleExtensionPoint.TransformationFinish.id, trans );
         } catch ( KettleException e ) {
@@ -1600,6 +1641,7 @@ public class Trans implements VariableSpace, NamedParams, HasLogChannelInterface
    * @throws KettleException if any errors occur during notification
    */
   protected void fireTransFinishedListeners() throws KettleException {
+    setLoggingObjectInUse( false );
     // PDI-5229 sync added
     synchronized ( transListeners ) {
       if ( transListeners.size() == 0 ) {
@@ -5220,6 +5262,32 @@ public class Trans implements VariableSpace, NamedParams, HasLogChannelInterface
   }
 
   /**
+   * Gets the logBufferStartLine.
+   *
+   * @return logBufferStartLine
+   */
+  public int getLogBufferStartLine() {
+    return logBufferStartLine;
+  }
+
+  /**
+   * Sets the logBufferStartLine.
+   *
+   * @param lineNr
+   *          the log buffer starting line for this transformation
+   */
+  public void setLogBufferStartLine( int lineNr ) {
+    logBufferStartLine = lineNr;
+  }
+
+  /**
+   * Sets logBufferStartLine based on LoggingBuffer last line number
+   */
+  public void setInitialLogBufferStartLine() {
+    logBufferStartLine = KettleLogStore.getAppender().getLastBufferLineNr();
+  }
+
+  /**
    * Gets the logging hierarchy.
    *
    * @return the logging hierarchy
@@ -5770,6 +5838,19 @@ public class Trans implements VariableSpace, NamedParams, HasLogChannelInterface
     }
 
     return Const.HEARTBEAT_PERIODIC_INTERVAL_IN_SECS;
+  }
+
+  @Override public void callBeforeLog() {
+    if ( parent != null ) {
+      parent.callBeforeLog();
+    }
+  }
+
+  @Override public void callAfterLog() {
+    if ( parent != null ) {
+      parent.callAfterLog();
+    }
+    this.logDate = new Date();
   }
 
 }

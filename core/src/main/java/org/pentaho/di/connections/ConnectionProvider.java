@@ -2,7 +2,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2019 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2019-2022 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -22,6 +22,9 @@
 
 package org.pentaho.di.connections;
 
+import org.pentaho.di.core.exception.KettleException;
+import org.pentaho.di.core.variables.VariableSpace;
+
 import java.util.List;
 
 /**
@@ -38,7 +41,7 @@ public interface ConnectionProvider<T extends ConnectionDetails> {
 
   List<T> getConnectionDetails();
 
-  boolean test( T connectionDetails );
+  boolean test( T connectionDetails ) throws KettleException;
 
-  T prepare( T connectionDetails );
+  T prepare( T connectionDetails ) throws KettleException;
 }

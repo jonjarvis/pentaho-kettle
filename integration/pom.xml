@@ -6,21 +6,20 @@
 
   <groupId>org.pentaho</groupId>
   <artifactId>pdi-integration-tests</artifactId>
-  <version>9.2.0.0-SNAPSHOT</version>
+  <version>9.6.0.0-SNAPSHOT</version>
 
   <name>Pentaho Data Integration Integration Tests</name>
 
   <parent>
     <groupId>org.pentaho.di</groupId>
     <artifactId>pdi</artifactId>
-    <version>9.2.0.0-SNAPSHOT</version>
+    <version>9.6.0.0-SNAPSHOT</version>
   </parent>
 
   <properties>
-    <nekohtml.version>1.9.7</nekohtml.version>
     <sshd-sftp.version>0.11.0</sshd-sftp.version>
     <ftpserver-core.version>1.0.6</ftpserver-core.version>
-    <pdi.version>9.2.0.0-SNAPSHOT</pdi.version>
+    <pdi.version>9.6.0.0-SNAPSHOT</pdi.version>
   </properties>
 
   <dependencies>
@@ -75,18 +74,6 @@
       <scope>test</scope>
     </dependency>
 
-    <dependency>
-      <groupId>net.sourceforge.nekohtml</groupId>
-      <artifactId>nekohtml</artifactId>
-      <version>${nekohtml.version}</version>
-      <scope>test</scope>
-      <exclusions>
-        <exclusion>
-          <groupId>*</groupId>
-          <artifactId>*</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
     <dependency>
       <groupId>org.apache.sshd</groupId>
       <artifactId>sshd-sftp</artifactId>

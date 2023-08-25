@@ -24,12 +24,12 @@
   <parent>
     <groupId>org.pentaho.di.plugins</groupId>
     <artifactId>pentaho-streaming-impls</artifactId>
-    <version>9.2.0.0-SNAPSHOT</version>
+    <version>9.6.0.0-SNAPSHOT</version>
   </parent>
 
   <artifactId>pentaho-streaming-mqtt-plugin</artifactId>
 
-  <version>9.2.0.0-SNAPSHOT</version>
+  <version>9.6.0.0-SNAPSHOT</version>
   <packaging>bundle</packaging>
 
   <name>MQTT Streaming Step Plugin Bundle</name>
@@ -48,17 +48,30 @@
     <repository>
       <id>pentaho-nexus</id>
       <name>PentahoNexus</name>
-      <url>http://nexus.pentaho.org/content/groups/omni</url>
+      <url>https://repo.orl.eng.hitachivantara.com/artifactory/pnt-mvn/</url>
     </repository>
   </repositories>
 
+  <pluginRepositories>
+    <pluginRepository>
+      <id>pentaho-public-plugins</id>
+      <name>Pentaho Public Plugins</name>
+      <url>https://repo.orl.eng.hitachivantara.com/artifactory/pnt-mvn/</url>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+      <releases>
+        <updatePolicy>never</updatePolicy>
+      </releases>
+    </pluginRepository>
+  </pluginRepositories>
+
+
   <properties>
-    <pdi.version>9.2.0.0-SNAPSHOT</pdi.version>
+    <pdi.version>9.6.0.0-SNAPSHOT</pdi.version>
     <target.jdk.version>1.8</target.jdk.version>
     <maven-bundle-plugin.version>2.4.0</maven-bundle-plugin.version>
     <junit.version>4.12</junit.version>
-    <guava.version>17.0</guava.version>
-    <powermock.version>1.6.6</powermock.version>
   </properties>
 
   <dependencies>
@@ -105,18 +118,17 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.powermock</groupId>
-      <artifactId>powermock-module-junit4</artifactId>
-      <version>${powermock.version}</version>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <version>${mockito.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.powermock</groupId>
-      <artifactId>powermock-api-mockito</artifactId>
-      <version>${powermock.version}</version>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-inline</artifactId>
+      <version>${mockito.version}</version>
       <scope>test</scope>
     </dependency>
-
 
     <dependency>
       <groupId>org.apache.activemq</groupId>
@@ -141,6 +153,19 @@
       <artifactId>kettle-core</artifactId>
       <version>${project.version}</version>
       <classifier>tests</classifier>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>pentaho-kettle</groupId>
+      <artifactId>kettle-engine</artifactId>
+      <version>${project.version}</version>
+      <classifier>tests</classifier>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.hamcrest</groupId>
+      <artifactId>hamcrest-core</artifactId>
+      <version>1.3</version>
       <scope>test</scope>
     </dependency>
 

@@ -113,8 +113,7 @@ import java.util.Set;
  * @since 11-08-2003
  */
 public class JobMeta extends AbstractMeta
-    implements Cloneable, Comparable<JobMeta>, XMLInterface, ResourceExportInterface, RepositoryElementInterface,
-    LoggingObjectInterface {
+    implements Cloneable, Comparable<JobMeta>, XMLInterface, ResourceExportInterface, RepositoryElementInterface {
 
   private static Class<?> PKG = JobMeta.class; // for i18n purposes, needed by Translator2!!
 
@@ -216,6 +215,7 @@ public class JobMeta extends AbstractMeta
     jobLogTable = JobLogTable.getDefault( this, this );
     jobEntryLogTable = JobEntryLogTable.getDefault( this, this );
     extraLogTables = new ArrayList<LogTableInterface>();
+    namedParams = new NamedParamsDefault();
 
     List<PluginInterface> plugins = PluginRegistry.getInstance().getPlugins( LogTablePluginType.class );
     for ( PluginInterface plugin : plugins ) {

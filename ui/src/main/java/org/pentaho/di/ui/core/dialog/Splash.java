@@ -85,7 +85,7 @@ public class Splash {
   }
 
   protected Splash( Display display, Shell splashShell ) {
-    log = new LogChannel( Spoon.APP_NAME );
+    log = new LogChannel( Spoon.APP_NAME, false, false );
 
     Rectangle displayBounds = display.getPrimaryMonitor().getBounds();
 
@@ -114,8 +114,8 @@ public class Splash {
 
       try {
         BufferedReader reader =
-          new BufferedReader( new InputStreamReader( Splash.class.getClassLoader().getResourceAsStream(
-            "org/pentaho/di/ui/core/dialog/license/license.txt" ) ) );
+                new BufferedReader( new InputStreamReader( Splash.class.getClassLoader().getResourceAsStream(
+                        "org/pentaho/di/ui/core/dialog/license/license.txt" ) ) );
 
         while ( ( line = reader.readLine() ) != null ) {
           sb.append( line + System.getProperty( "line.separator" ) );

@@ -2,7 +2,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2002-2018 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2002-2023 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -138,6 +138,8 @@ public class TransPainter extends BasePainter<TransHopMeta, StepMeta> {
     Point thumb = getThumb( area, max );
     offset = getOffset( thumb, area );
 
+    // Make sure the canvas is scaled 100%
+    gc.setTransform( 0, 0, 0, 1.0f );
     // First clear the image in the background color
     gc.setBackground( EColor.BACKGROUND );
     gc.fillRectangle( 0, 0, area.x, area.y );
@@ -163,7 +165,7 @@ public class TransPainter extends BasePainter<TransHopMeta, StepMeta> {
   }
 
   private void drawTrans( Point thumb ) {
-    if ( !shadow && gridSize > 1 ) {
+    if ( !Const.isRunningOnWebspoonMode() && !shadow && gridSize > 1 ) {
       drawGrid();
     }
 

@@ -2,7 +2,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2010-2019 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2010-2023 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -45,6 +45,7 @@ import org.pentaho.di.core.util.Utils;
 import org.pentaho.di.i18n.BaseMessages;
 import org.pentaho.di.imp.Import;
 import org.pentaho.di.job.JobMeta;
+import org.pentaho.di.laf.BasePropertyHandler;
 import org.pentaho.di.metastore.MetaStoreConst;
 import org.pentaho.di.partition.PartitionSchema;
 import org.pentaho.di.repository.AbstractRepository;
@@ -103,6 +104,7 @@ import org.pentaho.platform.repository2.unified.webservices.jaxws.IUnifiedReposi
 import javax.xml.namespace.QName;
 import javax.xml.ws.Service;
 import javax.xml.ws.soap.SOAPFaultException;
+import java.io.File;
 import java.io.Serializable;
 import java.lang.reflect.Proxy;
 import java.net.URI;
@@ -165,6 +167,9 @@ public class PurRepository extends AbstractRepository implements Repository, Rec
 
   private static final String FOLDER_DATABASES = "databases"; //$NON-NLS-1$
 
+  private static final String SYSTEM_FOLDER = Const
+          .safeAppendDirectory( BasePropertyHandler.getProperty( "systemDirBase", "system/" ), "" );
+
   // ~ Instance fields =================================================================================================
   /**
    * Indicates that this code should be run in unit test mode (where PUR is passed in instead of created inside this
@@ -216,9 +221,8 @@ public class PurRepository extends AbstractRepository implements Repository, Rec
 
   private String connectMessage = null;
 
-  protected PurRepositoryMetaStore metaStore;
-
   private ConnectionManager connectionManager = ConnectionManager.getInstance();
+  private IMetaStore metaStore;
 
   // The servers (DI Server, BA Server) that a user can authenticate to
   protected enum RepositoryServers {
@@ -294,6 +298,7 @@ public class PurRepository extends AbstractRepository implements Repository, Rec
           e );
       }
       this.user = new EEUserInfo( username, password, username, "test user", true );
+      this.user.setAdmin( true );
       this.jobDelegate = new JobDelegate( this, pur );
       this.transDelegate = new TransDelegate( this, pur );
       this.unifiedRepositoryLockService = new UnifiedRepositoryLockService( pur );
@@ -336,13 +341,8 @@ public class PurRepository extends AbstractRepository implements Repository, Rec
         if ( log.isDetailed() ) {
           log.logDetailed( BaseMessages.getString( PKG, "PurRepositoryMetastore.Create.Message" ) );
         }
-        metaStore = new PurRepositoryMetaStore( this );
-        IMetaStore activeMetaStore = metaStore;
-        if ( activeMetaStore != null ) {
-          final IMetaStore connectedMetaStore = activeMetaStore;
-          connectionManager.setMetastoreSupplier( () -> connectedMetaStore );
-        }
 
+        metaStore = new PurRepositoryMetaStore( this );
         // Create the default Pentaho namespace if it does not exist
         try {
           metaStore.createNamespace( PentahoDefaults.NAMESPACE );
@@ -374,17 +374,6 @@ public class PurRepository extends AbstractRepository implements Repository, Rec
   @Override public void disconnect() {
     connected = false;
     metaStore = null;
-    IMetaStore activeMetaStore = null;
-    try {
-      activeMetaStore = MetaStoreConst.openLocalPentahoMetaStore();
-    } catch ( MetaStoreException e ) {
-      activeMetaStore = null;
-    }
-    if ( activeMetaStore != null ) {
-      final IMetaStore connectedMetaStore = activeMetaStore;
-      connectionManager.setMetastoreSupplier( () -> connectedMetaStore );
-    }
-
     purRepositoryConnector.disconnect();
   }
 
@@ -979,8 +968,15 @@ public class PurRepository extends AbstractRepository implements Repository, Rec
         if ( path == null ) {
           return null;
         } else {
-          return path + ( path.endsWith( RepositoryFile.SEPARATOR ) ? "" : RepositoryFile.SEPARATOR ) + sanitizedName
-              + ( sanitizedName.endsWith( objectType.getExtension() ) ? "" : objectType.getExtension() );
+          String processedPath = path + ( path.endsWith( RepositoryFile.SEPARATOR ) ? "" : RepositoryFile.SEPARATOR ) + sanitizedName;
+
+          if ( System.getProperty( Const.KETTLE_COMPATIBILITY_INVOKE_FILES_WITH_OR_WITHOUT_FILE_EXTENSION, "Y" ).equals( "Y" ) ) {
+            processedPath = processedPath + ( sanitizedName.endsWith( objectType.getExtension() ) ? "" : objectType.getExtension() );
+          } else {
+            processedPath = processedPath + objectType.getExtension();
+          }
+
+          return processedPath;
         }
       }
       default: {
@@ -1484,13 +1480,22 @@ public class PurRepository extends AbstractRepository implements Repository, Rec
   public List<DatabaseMeta> readDatabases() throws KettleException {
     readWriteLock.readLock().lock();
     try {
+      boolean hasOsgiFolder = new File( SYSTEM_FOLDER ).exists();
       List<RepositoryFile> children = getAllFilesOfType( null, RepositoryObjectType.DATABASE, false );
-      List<DatabaseMeta> dbMetas = new ArrayList<DatabaseMeta>();
+      List<DatabaseMeta> dbMetas = new ArrayList<>();
+
+      //[PDI-18487] - Amount of POST calls from PDI client connected to Repository
+      //Grab data from all objects at once to lower calls to server
+      List<NodeRepositoryFileData> data = pur.getDataForReadInBatch( children, NodeRepositoryFileData.class );
+      Iterator<NodeRepositoryFileData> dataIter = data.iterator();
 
       for ( RepositoryFile file : children ) {
-        DataNode node;
-        node = pur.getDataForRead( file.getId(), NodeRepositoryFileData.class ).getNode();
-
+        //Both list should be ordered, so the items match
+        DataNode node = dataIter.next().getNode();
+        if ( !hasOsgiFolder && StringUtils.equals( node.getProperty( "TYPE" ).getString(), "KettleThin" ) ) {
+          log.logDetailed( "Unable to find database {" + file.getName() + "}" );
+          continue;
+        }
         DatabaseMeta databaseMeta = (DatabaseMeta) databaseMetaTransformer.dataNodeToElement( node );
         databaseMeta.setName( file.getTitle() );
         dbMetas.add( databaseMeta );
@@ -1992,7 +1997,7 @@ public class PurRepository extends AbstractRepository implements Repository, Rec
         for ( SharedObjectInterface obj : value ) {
           SharedObjectInterface newValueItem;
           if ( obj instanceof DatabaseMeta ) {
-            DatabaseMeta databaseMeta = (DatabaseMeta) ( (DatabaseMeta) obj ).clone();
+            DatabaseMeta databaseMeta = (DatabaseMeta) ( (DatabaseMeta) obj ).deepClone( true );
             databaseMeta.setObjectId( ( (DatabaseMeta) obj ).getObjectId() );
             databaseMeta.setChangedDate( obj.getChangedDate() );
             databaseMeta.clearChanged();
@@ -2497,7 +2502,7 @@ public class PurRepository extends AbstractRepository implements Repository, Rec
     transMeta.setObjectRevision( revision );
     transMeta.setRepository( this );
     transMeta.setRepositoryDirectory( parentDir );
-    transMeta.setMetaStore( getMetaStore() );
+    transMeta.setMetaStore( MetaStoreConst.getDefaultMetastore() );
     readTransSharedObjects( transMeta ); // This should read from the local cache
     transDelegate.dataNodeToElement( data.getNode(), transMeta );
     transMeta.clearChanged();
@@ -2612,7 +2617,7 @@ public class PurRepository extends AbstractRepository implements Repository, Rec
     jobMeta.setObjectRevision( revision );
     jobMeta.setRepository( this );
     jobMeta.setRepositoryDirectory( parentDir );
-    jobMeta.setMetaStore( getMetaStore() );
+    jobMeta.setMetaStore( MetaStoreConst.getDefaultMetastore() );
     readJobMetaSharedObjects( jobMeta ); // This should read from the local cache
     jobDelegate.dataNodeToElement( data.getNode(), jobMeta );
     jobMeta.clearChanged();
@@ -2842,7 +2847,7 @@ public class PurRepository extends AbstractRepository implements Repository, Rec
         case DATABASE:
           origSharedObjects = sharedObjectsByType.get( RepositoryObjectType.DATABASE );
           if ( !remove ) {
-            elementToUpdate = (RepositoryElementInterface) ( (DatabaseMeta) element ).clone();
+            elementToUpdate = (RepositoryElementInterface) ( (DatabaseMeta) element ).deepClone( true );
           }
           break;
         case SLAVE_SERVER:
@@ -3197,13 +3202,14 @@ public class PurRepository extends AbstractRepository implements Repository, Rec
 
         jobMeta = new EEJobMeta();
         jobMeta.setName( file.getTitle() );
+        jobMeta.setFilename( file.getPath() );
         jobMeta.setDescription( file.getDescription() );
         jobMeta.setObjectId( new StringObjectId( file.getId().toString() ) );
         jobMeta.setObjectRevision( getObjectRevision( new StringObjectId( file.getId().toString() ), versionLabel ) );
         jobMeta.setRepository( this );
         jobMeta.setRepositoryDirectory( findDirectory( getParentPath( file.getPath() ) ) );
 
-        jobMeta.setMetaStore( getMetaStore() ); // inject metastore
+        jobMeta.setMetaStore( MetaStoreConst.getDefaultMetastore() ); // inject metastore
 
         readJobMetaSharedObjects( jobMeta );
         // Additional obfuscation through obscurity
@@ -3238,16 +3244,16 @@ public class PurRepository extends AbstractRepository implements Repository, Rec
         } else {
           file = pur.getFileById( idTransformation.getId() );
         }
-
         transMeta = new EETransMeta();
         transMeta.setName( file.getTitle() );
+        transMeta.setFilename( file.getPath() );
         transMeta.setDescription( file.getDescription() );
         transMeta.setObjectId( new StringObjectId( file.getId().toString() ) );
         transMeta.setObjectRevision( getObjectRevision( new StringObjectId( file.getId().toString() ), versionLabel ) );
         transMeta.setRepository( this );
         transMeta.setRepositoryDirectory( findDirectory( getParentPath( file.getPath() ) ) );
         transMeta.setRepositoryLock( unifiedRepositoryLockService.getLock( file ) );
-        transMeta.setMetaStore( getMetaStore() ); // inject metastore
+        transMeta.setMetaStore( MetaStoreConst.getDefaultMetastore() ); // inject metastore
 
         readTransSharedObjects( transMeta );
 
@@ -3347,7 +3353,7 @@ public class PurRepository extends AbstractRepository implements Repository, Rec
   }
 
   @Override
-  public IMetaStore getMetaStore() {
+  public IMetaStore getRepositoryMetaStore() {
     return metaStore;
   }
 
@@ -3423,7 +3429,7 @@ public class PurRepository extends AbstractRepository implements Repository, Rec
 
     ExtensionPointHandler.callExtensionPoint( log, KettleExtensionPoint.BeforeSaveToRepository.id, element );
 
-    final boolean isUpdate = ( element.getObjectId() != null );
+    final boolean isUpdate = ( element.getObjectId() != null && element.getObjectId().getId() != null  );
     RepositoryFile file = null;
     if ( isUpdate ) {
 

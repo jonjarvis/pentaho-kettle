@@ -115,11 +115,11 @@ public enum KettleExtensionPoint {
     SpoonViewTreeExtension( "SpoonViewTreeExtension", "View tree spoon extension" ),
     SpoonPopupMenuExtension( "SpoonPopupMenuExtension", "Pop up menu extension for the view tree" ),
     SpoonTreeDelegateExtension( "SpoonTreeDelegateExtension", "During the SpoonTreeDelegate execution" ),
+
+  // Removed SpoonOpenSaveRepository Extension Point as per BACKLOG-36769
     SpoonOpenSaveRepository( "SpoonOpenSaveRepository", "Open the repository browser" ),
     SpoonOpenSaveNew( "SpoonOpenSaveNew", "Open the new file browser" ),
     SpoonBrowserFunction( "SpoonBrowserFunction", "Generic browser function handler" ),
-    GetFieldsExtension( "GetFieldsExtension", "Get Fields dialog" ),
-
     RepositoryImporterPatchTransStep( "RepositoryImporterPatchTransStep", "Patch the step in a transformation during repository import" ),
     RepositoryExporterPatchTransStep( "RepositoryExporterPatchTransStep", "Patch the step in a transformation during repository export" ),
     RequestLoginToRepository( "RequestLoginToRepository", "Request to login into repository" ),

@@ -2,7 +2,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2002-2020 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2002-2022 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -30,6 +30,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.mockito.AdditionalMatchers.or;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
@@ -191,7 +192,7 @@ public class DatabaseTest {
     String columnType = "Integer";
     int columnSize = 15;
 
-    when( dbMetaData.getColumns( anyString(), anyString(), anyString(), anyString() ) ).thenReturn( rs );
+    when( dbMetaData.getColumns( anyString(), anyString(), or( anyString(), eq( null ) ), or( anyString(), eq( null ) ) ) ).thenReturn( rs );
     when( rs.next() ).thenReturn( true ).thenReturn( false );
     when( rs.getString( "COLUMN_NAME" ) ).thenReturn( columnName );
     when( rs.getString( "SOURCE_DATA_TYPE" ) ).thenReturn( columnType );
@@ -250,7 +251,7 @@ public class DatabaseTest {
     when( ps.getMetaData() ).thenReturn( rsMetaData );
     Database db = new Database( log, meta );
     Connection conn = mock( Connection.class );
-    when( conn.prepareStatement( anyString() ) ).thenReturn( ps );
+    when( conn.prepareStatement( or( anyString(), eq( null ) ) ) ).thenReturn( ps );
 
     db.setConnection( conn );
     String[] name = new String[] { "a" };
@@ -658,6 +659,8 @@ public class DatabaseTest {
     DataSourceProviderInterface provider = mock( DataSourceProviderInterface.class );
     when( provider.getNamedDataSource( anyString(), any( DataSourceProviderInterface.DatasourceType.class ) ) )
       .thenReturn( ds );
+    when( provider.getPooledDataSourceFromMeta( any( DatabaseMeta.class ), any( DataSourceProviderInterface.DatasourceType.class ) ) )
+      .thenReturn( ds );
 
     Database db = new Database( log, meta );
     final DataSourceProviderInterface existing = DataSourceProviderFactory.getDataSourceProviderInterface();
@@ -687,17 +690,18 @@ public class DatabaseTest {
   @Test
   public void testNormalConnect_WhenTheProviderDoesNotReturnDataSourceWithPool() throws Exception {
     Driver driver = mock( Driver.class );
-    when( driver.acceptsURL( anyString() ) ).thenReturn( true );
-    when( driver.connect( anyString(), any( Properties.class ) ) ).thenReturn( conn );
+    when( driver.acceptsURL( or( anyString(), eq( null ) ) ) ).thenReturn( true );
+    when( driver.connect( or( anyString(), eq( null ) ), any( Properties.class ) ) ).thenReturn( conn );
     DriverManager.registerDriver( driver );
 
     when( meta.isUsingConnectionPool() ).thenReturn( true );
     when( meta.getDriverClass() ).thenReturn( driver.getClass().getName() );
-    when( meta.getURL( anyString() ) ).thenReturn( "mockUrl" );
+    when( meta.getURL( or( anyString(), eq( null ) ) ) ).thenReturn( "mockUrl" );
     when( meta.getInitialPoolSize() ).thenReturn( 1 );
     when( meta.getMaximumPoolSize() ).thenReturn( 1 );
 
     DataSourceProviderInterface provider = mock( DataSourceProviderInterface.class );
+    doThrow( new UnsupportedOperationException() ).when( provider ).getPooledDataSourceFromMeta( meta, DatasourceType.POOLED );
     Database db = new Database( log, meta );
     final DataSourceProviderInterface existing = DataSourceProviderFactory.getDataSourceProviderInterface();
     try {
@@ -715,21 +719,23 @@ public class DatabaseTest {
   @Test
   public void testNormalConnectWhenDatasourceNeedsUpdate() throws Exception {
     Driver driver = mock( Driver.class );
-    when( driver.acceptsURL( anyString() ) ).thenReturn( true );
-    when( driver.connect( anyString(), any( Properties.class ) ) ).thenReturn( conn );
+    when( driver.acceptsURL( or( anyString(), eq( null ) ) ) ).thenReturn( true );
+    when( driver.connect( or( anyString(), eq( null ) ), any( Properties.class ) ) ).thenReturn( conn );
     DriverManager.registerDriver( driver );
 
+    Properties prop = mock( Properties.class );
     when( meta.isUsingConnectionPool() ).thenReturn( true );
     when( meta.getDriverClass() ).thenReturn( driver.getClass().getName() );
     when( meta.getURL( anyString() ) ).thenReturn( "mockUrl" );
     when( meta.getInitialPoolSize() ).thenReturn( 1 );
     when( meta.getMaximumPoolSize() ).thenReturn( 1 );
     when( meta.isNeedUpdate() ).thenReturn( true );
+    when( meta.getAttributes() ).thenReturn( prop );
 
     DataSourceProviderInterface provider = mock( DataSourceProviderInterface.class );
     DataSource dataSource = mock( DataSource.class );
     Connection connection = mock( Connection.class );
-    when( provider.getNamedDataSource( any(), any() ) ).thenReturn( dataSource );
+    doThrow( new UnsupportedOperationException() ).when( provider ).getPooledDataSourceFromMeta( meta, DatasourceType.POOLED );
     when( dataSource.getConnection() ).thenReturn( connection );
     Database db = new Database( log, meta );
     final DataSourceProviderInterface existing = DataSourceProviderFactory.getDataSourceProviderInterface();
@@ -749,8 +755,8 @@ public class DatabaseTest {
   @Test
   public void testNormalConnectWhenDatasourceDontNeedsUpdate() throws Exception {
     Driver driver = mock( Driver.class );
-    when( driver.acceptsURL( anyString() ) ).thenReturn( true );
-    when( driver.connect( anyString(), any( Properties.class ) ) ).thenReturn( conn );
+    when( driver.acceptsURL( or( anyString(), eq( null ) ) ) ).thenReturn( true );
+    when( driver.connect( or( anyString(), eq( null ) ), any( Properties.class ) ) ).thenReturn( conn );
     DriverManager.registerDriver( driver );
 
     when( meta.isUsingConnectionPool() ).thenReturn( true );
@@ -761,6 +767,7 @@ public class DatabaseTest {
     when( meta.isNeedUpdate() ).thenReturn( false );
 
     DataSourceProviderInterface provider = mock( DataSourceProviderInterface.class );
+    doThrow( new UnsupportedOperationException() ).when( provider ).getPooledDataSourceFromMeta( meta, DatasourceType.POOLED );
     Database db = new Database( log, meta );
     final DataSourceProviderInterface existing = DataSourceProviderFactory.getDataSourceProviderInterface();
     try {
@@ -827,7 +834,7 @@ public class DatabaseTest {
     when( rs.next() ).thenReturn( true, false );
     when( rs.getString( "TABLE_NAME" ) ).thenReturn( EXISTING_TABLE_NAME );
     when( dbMetaMock.getTables(
-      same( dbMetaDataMock ), anyString(), anyString(), any() ) ).thenReturn( rs );
+      same( dbMetaDataMock ), or( anyString(), eq( null ) ), or( anyString(), eq( null ) ), any() ) ).thenReturn( rs );
     Database db = new Database( log, dbMetaMock );
     db.setConnection( mockConnection( dbMetaDataMock ) );
 

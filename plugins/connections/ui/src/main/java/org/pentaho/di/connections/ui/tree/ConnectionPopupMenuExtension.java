@@ -3,7 +3,7 @@
  *
  *  Pentaho Data Integration
  *
- *  Copyright (C) 2019 by Hitachi Vantara : http://www.pentaho.com
+ *  Copyright (C) 2021 by Hitachi Vantara : http://www.pentaho.com
  *
  *  *******************************************************************************
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use
@@ -30,7 +30,7 @@ import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.MenuItem;
 import org.eclipse.swt.widgets.Tree;
-import org.pentaho.di.connections.ui.dialog.ConnectionDelegate;
+import org.pentaho.di.vfs.connections.ui.dialog.ConnectionDelegate;
 import org.pentaho.di.core.exception.KettleException;
 import org.pentaho.di.core.extension.ExtensionPoint;
 import org.pentaho.di.core.extension.ExtensionPointInterface;
@@ -55,8 +55,8 @@ public class ConnectionPopupMenuExtension implements ExtensionPointInterface {
   private ConnectionDelegate vfsConnectionDelegate;
   private ConnectionTreeItem vfsConnectionTreeItem;
 
-  public ConnectionPopupMenuExtension( ConnectionDelegate connectionDelegate ) {
-    this.vfsConnectionDelegate = connectionDelegate;
+  public ConnectionPopupMenuExtension() {
+    this.vfsConnectionDelegate = ConnectionDelegate.getInstance();
   }
 
   @Override public void callExtensionPoint( LogChannelInterface logChannelInterface, Object extension )

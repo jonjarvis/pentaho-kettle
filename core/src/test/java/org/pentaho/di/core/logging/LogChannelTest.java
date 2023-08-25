@@ -2,7 +2,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2002-2019 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2002-2021 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -22,25 +22,26 @@
 
 package org.pentaho.di.core.logging;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
+import org.mockito.junit.MockitoJUnitRunner;
 import org.pentaho.di.core.util.Utils;
-import org.powermock.api.mockito.PowerMockito;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.modules.junit4.PowerMockRunner;
-import org.powermock.reflect.Whitebox;
 
-import static org.mockito.Mockito.verify;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyString;
+import java.util.UUID;
+
+import static org.junit.Assert.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
-import static org.powermock.api.mockito.PowerMockito.when;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-@RunWith( PowerMockRunner.class )
-@PrepareForTest( {DefaultLogLevel.class, LoggingRegistry.class, LogLevel.class, KettleLogStore.class, Utils.class} )
+@RunWith( MockitoJUnitRunner.class )
 public class LogChannelTest {
 
   private LogChannel logChannel;
@@ -50,42 +51,43 @@ public class LogChannelTest {
   private LogLevel logLevel;
   private LogMessageInterface logMsgInterface;
   private LogChannelFileWriterBuffer logChFileWriterBuffer;
+  private MockedStatic<LoggingRegistry> loggingRegistryMockedStatic;
+  private MockedStatic<KettleLogStore> kettleLogStoreMockedStatic;
+  //private MockedStatic<DefaultLogLevel> defaultLogLevelMockedStatic;
 
   @Before
   public void setUp() throws Exception {
-    LogLevel logLevelStatic = PowerMockito.mock( LogLevel.class );
-    Whitebox.setInternalState( logLevelStatic, "name", "Basic" );
-    Whitebox.setInternalState( logLevelStatic, "ordinal", 3 );
-
-    PowerMockito.mockStatic( DefaultLogLevel.class );
-    when( DefaultLogLevel.getLogLevel() ).thenReturn( LogLevel.BASIC );
+    DefaultLogLevel.setLogLevel( LogLevel.BASIC );
 
     logChFileWriterBuffer = mock( LogChannelFileWriterBuffer.class );
 
     LoggingRegistry regInstance = mock( LoggingRegistry.class );
-    Mockito.when( regInstance.registerLoggingSource( logChannelSubject ) ).thenReturn( channelId );
-    Mockito.when( regInstance.getLogChannelFileWriterBuffer( channelId ) ).thenReturn( logChFileWriterBuffer );
+    when( regInstance.registerLoggingSource( logChannelSubject ) ).thenReturn( channelId );
+    when( regInstance.getLogChannelFileWriterBuffer( channelId ) ).thenReturn( logChFileWriterBuffer );
 
-    PowerMockito.mockStatic( LoggingRegistry.class );
-    when( LoggingRegistry.getInstance() ).thenReturn( regInstance );
+    loggingRegistryMockedStatic = Mockito.mockStatic( LoggingRegistry.class );
+    loggingRegistryMockedStatic.when( LoggingRegistry::getInstance ).thenReturn( regInstance );
 
-    logLevel = PowerMockito.mock( LogLevel.class );
-    Whitebox.setInternalState( logLevel, "name", "Basic" );
-    Whitebox.setInternalState( logLevel, "ordinal", 3 );
+    kettleLogStoreMockedStatic = Mockito.mockStatic( KettleLogStore.class );
 
+    logLevel = LogLevel.BASIC;
     logMsgInterface = mock( LogMessageInterface.class );
-    Mockito.when( logMsgInterface.getLevel() ).thenReturn( logLevel );
+    when( logMsgInterface.getLevel() ).thenReturn( logLevel );
 
     logChannel = new LogChannel( logChannelSubject );
   }
 
+  @After
+  public void cleanup() {
+    Mockito.validateMockitoUsage();
+    loggingRegistryMockedStatic.close();
+    kettleLogStoreMockedStatic.close();
+  }
+
   @Test
   public void testPrintlnWithNullLogChannelFileWriterBuffer() {
-    when( logLevel.isVisible( any( LogLevel.class ) ) ).thenReturn( true );
-
     LoggingBuffer loggingBuffer = mock( LoggingBuffer.class );
-    PowerMockito.mockStatic( KettleLogStore.class );
-    when( KettleLogStore.getAppender() ).thenReturn( loggingBuffer );
+    kettleLogStoreMockedStatic.when( KettleLogStore::getAppender ).thenReturn( loggingBuffer );
 
     logChannel.println( logMsgInterface, LogLevel.BASIC );
     verify( logChFileWriterBuffer, times( 1 ) ).addEvent( any( KettleLoggingEvent.class ) );
@@ -94,28 +96,62 @@ public class LogChannelTest {
 
   @Test
   public void testPrintlnLogNotVisible() {
-    when( logLevel.isVisible( any( LogLevel.class ) ) ).thenReturn( false );
+    when( logMsgInterface.getLevel() ).thenReturn( LogLevel.DETAILED );
     logChannel.println( logMsgInterface, LogLevel.BASIC );
     verify( logChFileWriterBuffer, times( 0 ) ).addEvent( any( KettleLoggingEvent.class ) );
   }
 
   @Test
   public void testPrintMessageFiltered() {
-    LogLevel logLevelFil = PowerMockito.mock( LogLevel.class );
-    Whitebox.setInternalState( logLevelFil, "name", "Error" );
-    Whitebox.setInternalState( logLevelFil, "ordinal", 1 );
-    when( logLevelFil.isError() ).thenReturn( false );
-
     LogMessageInterface logMsgInterfaceFil = mock( LogMessageInterface.class );
-    Mockito.when( logMsgInterfaceFil.getLevel() ).thenReturn( logLevelFil );
-    Mockito.when( logMsgInterfaceFil.toString() ).thenReturn( "a" );
+    when( logMsgInterfaceFil.getLevel() ).thenReturn( LogLevel.BASIC );
+    when( logMsgInterfaceFil.toString() ).thenReturn( "a" );
 
-    PowerMockito.mockStatic( Utils.class );
-    when( Utils.isEmpty( anyString() ) ).thenReturn( false );
+    try ( MockedStatic<Utils> utilsMockedStatic = Mockito.mockStatic( Utils.class ) ) {
+      utilsMockedStatic.when( () -> Utils.isEmpty( anyString() ) ).thenReturn( false );
 
-    when( logLevelFil.isVisible( any( LogLevel.class ) ) ).thenReturn( true );
-    logChannel.setFilter( "b" );
-    logChannel.println( logMsgInterfaceFil, LogLevel.BASIC );
-    verify( logChFileWriterBuffer, times( 0 ) ).addEvent( any( KettleLoggingEvent.class ) );
+      logChannel.setFilter( "b" );
+      logChannel.println( logMsgInterfaceFil, LogLevel.BASIC );
+      verify( logChFileWriterBuffer, times( 0 ) ).addEvent( any( KettleLoggingEvent.class ) );
+    }
   }
+
+  @Test
+  public void testGetHooks() {
+    LogChannel logChannel = new LogChannel();
+    LoggingObjectInterface loggingObjectInterface = mock( LoggingObjectInterface.class );
+    logChannel.setHooks( loggingObjectInterface );
+
+    assertEquals( loggingObjectInterface, logChannel.getHooks() );
+  }
+
+  @Test
+  public void testLogChannelConstructorWithParentObject() {
+    LoggingObjectInterface parentObject = mock( LoggingObjectInterface.class );
+    String subject = UUID.randomUUID().toString();
+    LogChannel logChannel = new LogChannel( subject, parentObject );
+
+    assertEquals( parentObject, logChannel.getHooks() );
+  }
+
+  @Test
+  public void testPrintlnHooksCall()  {
+    LoggingObjectInterface parentObject = mock( LoggingObjectInterface.class );
+    String subject = UUID.randomUUID().toString();
+    LogMessageInterface logMessageInterface = mock( LogMessageInterface.class );
+    LoggingBuffer loggingBuffer = mock( LoggingBuffer.class );
+
+    when( logMessageInterface.getLevel() ).thenReturn( LogLevel.BASIC );
+    when( logMessageInterface.getSubject() ).thenReturn( subject );
+    kettleLogStoreMockedStatic.when( KettleLogStore::getAppender ).thenReturn( loggingBuffer );
+
+    LogChannel logChannel = new LogChannel( subject, parentObject );
+    logChannel.setFilter( "" );
+    logChannel.println( logMessageInterface, LogLevel.BASIC );
+
+    verify( parentObject, times( 1 ) ).callAfterLog();
+    verify( parentObject, times( 1 ) ).callBeforeLog();
+  }
+
+
 }

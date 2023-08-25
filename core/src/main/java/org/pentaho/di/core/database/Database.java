@@ -3,7 +3,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2002-2020 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2002-2022 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -57,6 +57,7 @@ import java.util.Set;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.vfs2.FileObject;
 import org.pentaho.di.core.Const;
+import org.pentaho.di.core.logging.SimpleLoggingObject;
 import org.pentaho.di.core.plugins.PluginTypeListener;
 import org.pentaho.di.core.row.value.ValueMetaPluginType;
 import org.pentaho.di.core.util.Utils;
@@ -115,6 +116,8 @@ import org.pentaho.di.repository.ObjectId;
 import org.pentaho.di.repository.ObjectRevision;
 import org.pentaho.di.repository.RepositoryDirectory;
 
+import javax.sql.DataSource;
+
 /**
  * Database handles the process of connecting to, reading from, writing to and updating databases. The database specific
  * parameters are defined in DatabaseInfo.
@@ -156,6 +159,8 @@ public class Database implements VariableSpace, LoggingObjectInterface, Closeabl
 
   private LogChannelInterface log;
   private LoggingObjectInterface parentLoggingObject;
+
+  private boolean loggingObjectInUse;
   private static final String[] TABLE_TYPES_TO_GET = { "TABLE", "VIEW" };
   private static final String TABLES_META_DATA_TABLE_NAME = "TABLE_NAME";
 
@@ -181,6 +186,9 @@ public class Database implements VariableSpace, LoggingObjectInterface, Closeabl
   private int nrExecutedCommits;
 
   private static List<ValueMetaInterface> valueMetaPluginClasses;
+
+  private DataSource dataSource;
+  private String ownerName;
 
   static {
     initValueMetaPluginClasses();
@@ -342,6 +350,25 @@ public class Database implements VariableSpace, LoggingObjectInterface, Closeabl
   }
 
   /**
+   * @return Returns the dataSource.
+   */
+  public DataSource getDataSource( String partitionId ) throws KettleDatabaseException {
+    if ( dataSource == null ) {
+      initializeConnectionDataSource( partitionId );
+    }
+    return dataSource;
+  }
+
+  @Override
+  public boolean isLoggingObjectInUse() {
+    return loggingObjectInUse;
+  }
+
+  public void setLoggingObjectInUse( boolean inUse ) {
+    loggingObjectInUse = inUse;
+  }
+
+  /**
    * Open the database connection.
    *
    * @throws KettleDatabaseException if something went wrong.
@@ -362,7 +389,7 @@ public class Database implements VariableSpace, LoggingObjectInterface, Closeabl
 
   public synchronized void connect( String group, String partitionId ) throws KettleDatabaseException {
     try {
-
+      setLoggingObjectInUse( true );
       log.snap( Metrics.METRIC_DATABASE_CONNECT_START, databaseMeta.getName() );
 
       // Before anything else, let's see if we already have a connection defined
@@ -438,48 +465,16 @@ public class Database implements VariableSpace, LoggingObjectInterface, Closeabl
     }
 
     try {
-      DataSourceProviderInterface dsp = DataSourceProviderFactory.getDataSourceProviderInterface();
-      if ( dsp == null ) {
-        // since DataSourceProviderFactory is initialised with new DatabaseUtil(),
-        // this assignment is correct
-        dsp = new DatabaseUtil();
-      }
-
       if ( databaseMeta.getAccessType() == DatabaseMeta.TYPE_ACCESS_JNDI ) {
-        String jndiName = environmentSubstitute( databaseMeta.getDatabaseName() );
-        try {
-          this.connection = dsp.getNamedDataSource( jndiName, DatasourceType.JNDI ).getConnection();
-        } catch ( DataSourceNamingException e ) {
-          log.logError( "Unable to find datasource by JNDI name: " + jndiName, e );
-          throw e;
+        this.connection = getDataSource( partitionId ).getConnection();
+      } else if ( databaseMeta.isUsingConnectionPool() ) {
+        this.connection = getDataSource( partitionId ).getConnection();
+        if ( getConnection().getAutoCommit() != isAutoCommit() ) {
+          setAutoCommit( isAutoCommit() );
         }
       } else {
-        if ( databaseMeta.isUsingConnectionPool() ) {
-          String name = databaseMeta.getName();
-          if ( databaseMeta.isNeedUpdate() ) {
-            dsp.invalidateNamedDataSource( name, DatasourceType.POOLED );
-            databaseMeta.setNeedUpdate( false );
-          }
-          try {
-            try {
-              this.connection = dsp.getNamedDataSource( name, DatasourceType.POOLED ).getConnection();
-            } catch ( UnsupportedOperationException | NullPointerException e ) {
-              // UnsupportedOperationException is happen at DatabaseUtil doesn't support pooled DS, use legacy routine
-              // NullPointerException is happen when we will try to run the transformation on the remote server but
-              // server does not have such databases, so will using legacy routine as well
-              this.connection = ConnectionPoolUtil.getConnection( log, databaseMeta, partitionId );
-            }
-            if ( getConnection().getAutoCommit() != isAutoCommit() ) {
-              setAutoCommit( isAutoCommit() );
-            }
-          } catch ( DataSourceNamingException e ) {
-            log.logError( "Unable to find pooled datasource by its name: " + name, e );
-            throw e;
-          }
-        } else {
-          // using non-jndi and non-pooled connection -- just a simple JDBC
-          connectUsingClass( databaseMeta.getDriverClass(), partitionId );
-        }
+        // using non-jndi and non-pooled connection -- just a simple JDBC
+        connectUsingClass( databaseMeta.getDriverClass(), partitionId );
       }
 
       // See if we need to execute extra SQL statement...
@@ -495,6 +490,52 @@ public class Database implements VariableSpace, LoggingObjectInterface, Closeabl
       }
     } catch ( Exception e ) {
       throw new KettleDatabaseException( "Error occurred while trying to connect to the database", e );
+    }
+  }
+
+  public void initializeConnectionDataSource( String partitionId ) throws KettleDatabaseException {
+
+    try {
+      DataSourceProviderInterface dsp = DataSourceProviderFactory.getDataSourceProviderInterface();
+      if ( dsp == null ) {
+        // since DataSourceProviderFactory is initialised with new DatabaseUtil(),
+        // this assignment is correct
+        dsp = new DatabaseUtil();
+      }
+
+      if ( databaseMeta.getAccessType() == DatabaseMeta.TYPE_ACCESS_JNDI ) {
+        this.dataSource = getJNDIDataSource( dsp );
+      } else if ( databaseMeta.isUsingConnectionPool() ) {
+        this.dataSource = getPoolingDataSource( partitionId, dsp );
+      }
+    } catch ( Exception e ) {
+      throw new KettleDatabaseException( "Error occurred while trying to retrieve the DataSource", e );
+    }
+  }
+
+  private DataSource getPoolingDataSource( String partitionId, DataSourceProviderInterface dsp ) throws Exception {
+
+    try {
+      return dsp.getPooledDataSourceFromMeta( databaseMeta, DatasourceType.POOLED );
+    } catch ( UnsupportedOperationException e ) {
+      // UnsupportedOperationException is happen at DatabaseUtil doesn't support pooled DS, use legacy routine
+      // NullPointerException is happen when we will try to run the transformation on the remote server but
+      // server does not have such databases, so will using legacy routine as well
+      if ( databaseMeta.isNeedUpdate() && !ConnectionPoolUtil.hasOldConfig( databaseMeta, partitionId ) ) {
+        dsp.invalidateNamedDataSource( ConnectionPoolUtil.getDataSourceName( databaseMeta, partitionId ), DatasourceType.POOLED );
+        databaseMeta.setNeedUpdate( false );
+      }
+      return ConnectionPoolUtil.getDataSource( log, databaseMeta, partitionId );
+    }
+  }
+
+  private DataSource getJNDIDataSource( DataSourceProviderInterface dsp ) throws DataSourceNamingException {
+    String jndiName = environmentSubstitute( databaseMeta.getDatabaseName() );
+    try {
+      return dsp.getNamedDataSource( jndiName, DatasourceType.JNDI );
+    } catch ( DataSourceNamingException e ) {
+      log.logError( "Unable to find datasource by JNDI name: " + jndiName, e );
+      throw e;
     }
   }
 
@@ -612,9 +653,12 @@ public class Database implements VariableSpace, LoggingObjectInterface, Closeabl
    * Disconnect from the database and close all open prepared statements.
    */
   public synchronized void disconnect() {
+    setLoggingObjectInUse( false );
+
     if ( connection == null ) {
       return; // Nothing to do...
     }
+
     try {
       if ( connection.isClosed() ) {
         return; // Nothing to do...
@@ -702,6 +746,10 @@ public class Database implements VariableSpace, LoggingObjectInterface, Closeabl
     } finally {
       // Always close the connection, irrespective of what happens above...
       try {
+        if ( dataSource instanceof CachedManagedDataSourceInterface ) {
+          ((CachedManagedDataSourceInterface) dataSource).removeInUseBy( ownerName );
+        }
+        dataSource = null;
         closeConnectionOnly();
       } catch ( KettleDatabaseException ignoredKde ) { // The only exception thrown from closeConnectionOnly()
         // cannot do anything about this but log it
@@ -778,10 +826,14 @@ public class Database implements VariableSpace, LoggingObjectInterface, Closeabl
   /**
    * Specify after how many rows a commit needs to occur when inserting or updating values.
    *
-   * @param commsize The number of rows to wait before doing a commit on the connection.
+   * @param commitSize The number of rows to wait before doing a commit on the connection.
    */
-  public void setCommit( int commsize ) {
-    commitsize = commsize;
+  public void setCommit( int commitSize ) {
+    setCommitSize(commitSize);
+    setAutoCommit();
+  }
+
+  public void setAutoCommit() {
     String onOff = ( commitsize <= 0 ? "on" : "off" );
     try {
       connection.setAutoCommit( commitsize <= 0 );
@@ -793,6 +845,10 @@ public class Database implements VariableSpace, LoggingObjectInterface, Closeabl
         log.logDebug( "Can't turn auto commit " + onOff + Const.CR + Const.getStackTracker( e ) );
       }
     }
+  }
+
+  public void setCommitSize( int size ) {
+    commitsize = size;
   }
 
   public void setAutoCommit( boolean useAutoCommit ) throws KettleDatabaseException {
@@ -1393,7 +1449,7 @@ public class Database implements VariableSpace, LoggingObjectInterface, Closeabl
    *
    * @param ps             The prepared statement to empty and close.
    * @param batch          true if you are using batch processing
-   * @param psBatchCounter The number of rows on the batch queue
+   * @param batchCounter The number of rows on the batch queue
    * @throws KettleDatabaseException
    */
   public void emptyAndCommit( PreparedStatement ps, boolean batch, int batchCounter ) throws KettleDatabaseException {
@@ -1467,7 +1523,6 @@ public class Database implements VariableSpace, LoggingObjectInterface, Closeabl
    *
    * @param ps             The prepared statement to empty and close.
    * @param batch          true if you are using batch processing (typically true for this method)
-   * @param psBatchCounter The number of rows on the batch queue
    * @throws KettleDatabaseException
    * @deprecated use emptyAndCommit() instead (pass in the number of rows left in the batch)
    */
@@ -2016,7 +2071,7 @@ public class Database implements VariableSpace, LoggingObjectInterface, Closeabl
    * <p>Contrary to previous versions of similar duplicated methods, this implementation
    * does not require quoted identifiers.
    *
-   * @param schema     The name of the schema to check.
+   * @param schemaname     The name of the schema to check.
    * @param tablename  The name of the table to check.
    * @param columnname The name of the column to check.
    * @return true if the table exists, false if it doesn't.
@@ -2393,17 +2448,6 @@ public class Database implements VariableSpace, LoggingObjectInterface, Closeabl
 
     // No cache entry found
 
-    // The new method of retrieving the query fields fails on Oracle because
-    // they failed to implement the getMetaData method on a prepared statement.
-    // (!!!)
-    // Even recent drivers like 10.2 fail because of it.
-    //
-    // There might be other databases that don't support it (we have no
-    // knowledge of this at the time of writing).
-    // If we discover other RDBMSs, we will create an interface for it.
-    // For now, we just try to get the field layout on the re-bound in the
-    // exception block below.
-    //
     try {
       if ( databaseMeta.supportsPreparedStatementMetadataRetrieval() ) {
         // On with the regular program.
@@ -3311,7 +3355,7 @@ public class Database implements VariableSpace, LoggingObjectInterface, Closeabl
   }
 
   public void truncateTable( String schema, String tablename ) throws KettleDatabaseException {
-    if ( Utils.isEmpty( connectionGroup ) ) {
+    if ( Utils.isEmpty( connectionGroup ) && !databaseMeta.getPluginId().equalsIgnoreCase( "MySQL" ) ) { // this is a hack to fix a know issue on MySQL issue name on Pentaho side BISERVER-14546
       String truncateStatement = databaseMeta.getTruncateTableStatement( schema, tablename );
       if ( truncateStatement == null ) {
         throw new KettleDatabaseException( "Truncate table not supported by "
@@ -4985,7 +5029,7 @@ public class Database implements VariableSpace, LoggingObjectInterface, Closeabl
   /**
    * Execute an SQL statement inside a file on the database connection (has to be open)
    *
-   * @param sql The file that contains SQL to execute
+   * @param filename The file that contains SQL to execute
    * @return a Result object indicating the number of lines read, deleted, inserted, updated, ...
    * @throws KettleDatabaseException in case anything goes wrong.
    * @sendSinglestatement send one statement
@@ -5075,4 +5119,14 @@ public class Database implements VariableSpace, LoggingObjectInterface, Closeabl
     return Boolean.TRUE.toString().equals( useJdbcMeta );
   }
 
+  public void setOwnerName( String name ) {
+    ownerName = name;
+    if ( dataSource instanceof CachedManagedDataSourceInterface ) {
+      ( (CachedManagedDataSourceInterface) dataSource ).addInUseBy( ownerName );
+    }
+  }
+
+  public String getOwnerName() {
+    return ownerName;
+  }
 }

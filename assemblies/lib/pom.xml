@@ -11,24 +11,24 @@
   <parent>
     <artifactId>pdi-assemblies</artifactId>
     <groupId>org.pentaho.di</groupId>
-    <version>9.2.0.0-SNAPSHOT</version>
+    <version>9.6.0.0-SNAPSHOT</version>
   </parent>
 
   <properties>
     <pdi-engine-spark.version>${project.version}</pdi-engine-spark.version>
     <rxjava.version>2.2.3</rxjava.version>
+    <pentaho-mongodb-plugin.version>9.6.0.0-SNAPSHOT</pentaho-mongodb-plugin.version>
+    <big-data-plugin.version>9.6.0.0-SNAPSHOT</big-data-plugin.version>
 
-    <pentaho-json.version>9.2.0.0-SNAPSHOT</pentaho-json.version>
-    <pentaho-hadoop-shims.version>9.2.0.0-SNAPSHOT</pentaho-hadoop-shims.version>
+    <pentaho-json.version>9.6.0.0-SNAPSHOT</pentaho-json.version>
     <pdi-spark-driver.version>${project.version}</pdi-spark-driver.version>
-    <pdi-osgi-bridge.version>9.2.0.0-SNAPSHOT</pdi-osgi-bridge.version>
-    <commons-database.version>9.2.0.0-SNAPSHOT</commons-database.version>
-    <pentaho-registry.version>9.2.0.0-SNAPSHOT</pentaho-registry.version>
-    <pentaho-metaverse.version>9.2.0.0-SNAPSHOT</pentaho-metaverse.version>
-    <platform.version>9.2.0.0-SNAPSHOT</platform.version>
-    <pentaho-reporting.version>9.2.0.0-SNAPSHOT</pentaho-reporting.version>
-    <big-data-plugin.version>9.2.0.0-SNAPSHOT</big-data-plugin.version>
-    <pentaho-hadoop-shims.version>9.2.0.0-SNAPSHOT</pentaho-hadoop-shims.version>
+    <commons-database.version>9.6.0.0-SNAPSHOT</commons-database.version>
+    <pentaho-registry.version>9.6.0.0-SNAPSHOT</pentaho-registry.version>
+    <pentaho-metaverse.version>9.6.0.0-SNAPSHOT</pentaho-metaverse.version>
+    <platform.version>9.6.0.0-SNAPSHOT</platform.version>
+    <pentaho-reporting.version>9.6.0.0-SNAPSHOT</pentaho-reporting.version>
+    <pdi-osgi-bridge.version>9.6.0.0-SNAPSHOT</pdi-osgi-bridge.version>
+    <pentaho-hadoop-shims.version>9.6.0.0-SNAPSHOT</pentaho-hadoop-shims.version>
 
     <!-- third party -->
     <derbyclient.version>10.2.1.6</derbyclient.version>
@@ -50,16 +50,27 @@
     <enunciate-jersey-rt.version>1.27</enunciate-jersey-rt.version>
     <enunciate-core-annotations.version>1.27</enunciate-core-annotations.version>
     <tyrus-standalone-client.version>1.13.1</tyrus-standalone-client.version>
-    <spark.version>2.1.0</spark.version>
-    <kafka.spark.version>2.3.2</kafka.spark.version>
     <databricks.version>4.0.0</databricks.version>
-    <bahir.version>2.3.2</bahir.version>
-    <snowflake-jdbc.version>3.6.28</snowflake-jdbc.version>
     <javax.servlet-api.version>3.1.0</javax.servlet-api.version>
+    <jface.version>3.22.0</jface.version>
+    <pentaho-metadata.version>9.6.0.0-SNAPSHOT</pentaho-metadata.version>
+    <xml-graphics-common.version>2.2</xml-graphics-common.version>
+    <jdom.version>1.1.3</jdom.version>
+    <google-http-client.version>1.42.3</google-http-client.version>
   </properties>
 
   <dependencies>
     <!-- kettle -->
+    <dependency>
+      <groupId>org.pentaho</groupId>
+      <artifactId>pentaho-metadata</artifactId>
+      <version>${pentaho-metadata.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.xmlgraphics</groupId>
+      <artifactId>xmlgraphics-commons</artifactId>
+      <version>${xml-graphics-common.version}</version>
+    </dependency>
     <dependency>
       <groupId>pentaho-kettle</groupId>
       <artifactId>kettle-core</artifactId>
@@ -77,6 +88,11 @@
       </exclusions>
     </dependency>
     <dependency>
+      <groupId>org.jdom</groupId>
+      <artifactId>jdom</artifactId>
+      <version>${jdom.version}</version>
+    </dependency>
+    <dependency>
       <groupId>pentaho-kettle</groupId>
       <artifactId>kettle-dbdialog</artifactId>
       <version>${project.version}</version>
@@ -84,6 +100,10 @@
         <exclusion>
           <groupId>org.eclipse.swt</groupId>
           <artifactId>*</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.eclipse</groupId>
+          <artifactId>jface</artifactId>
         </exclusion>
       </exclusions>
     </dependency>
@@ -96,35 +116,63 @@
           <groupId>org.eclipse.swt</groupId>
           <artifactId>*</artifactId>
         </exclusion>
-      </exclusions>
-    </dependency>
-    <dependency>
-      <groupId>pentaho</groupId>
-      <artifactId>pentaho-big-data-legacy-core</artifactId>
-      <version>${big-data-plugin.version}</version>
-      <exclusions>
         <exclusion>
-          <groupId>*</groupId>
+          <groupId>org.eclipse.core</groupId>
           <artifactId>*</artifactId>
         </exclusion>
+        <exclusion>
+          <groupId>org.eclipse.equinox</groupId>
+          <artifactId>common</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.eclipse</groupId>
+          <artifactId>jface</artifactId>
+        </exclusion>
       </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>pentaho</groupId>
+      <artifactId>pentaho-mongo-utils</artifactId>
+      <version>${pentaho-mongodb-plugin.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.mongodb</groupId>
+      <artifactId>mongo-java-driver</artifactId>
+      <version>3.12.10</version>
+    </dependency>
+    <!-- Updated Eclipse Dependencies -->
+    <dependency>
+      <groupId>org.eclipse.platform</groupId>
+      <artifactId>org.eclipse.jface</artifactId>
+      <version>${jface.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.eclipse.platform</groupId>
+          <artifactId>org.eclipse.core.commands</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.eclipse.platform</groupId>
+          <artifactId>org.eclipse.equinox.common</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <!-- needed to avoid pulling in Java 11 artifacts -->
+    <dependency>
+      <groupId>org.eclipse.platform</groupId>
+      <artifactId>org.eclipse.core.commands</artifactId>
+      <version>3.9.800</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.platform</groupId>
+      <artifactId>org.eclipse.equinox.common</artifactId>
+      <version>3.14.0</version>
     </dependency>
 
     <dependency>
       <groupId>io.reactivex.rxjava2</groupId>
       <artifactId>rxjava</artifactId>
       <version>${rxjava.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.spark</groupId>
-      <artifactId>spark-streaming-kafka-0-10_2.11</artifactId>
-      <version>${kafka.spark.version}</version>
-      <exclusions>
-        <exclusion>
-          <groupId>*</groupId>
-          <artifactId>*</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.apache.kafka</groupId>
@@ -139,17 +187,6 @@
     <dependency>
       <groupId>org.eclipse.paho</groupId>
       <artifactId>org.eclipse.paho.client.mqttv3</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.bahir</groupId>
-      <artifactId>spark-streaming-mqtt_2.11</artifactId>
-      <version>${bahir.version}</version>
-      <exclusions>
-        <exclusion>
-          <groupId>*</groupId>
-          <artifactId>*</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.glassfish.tyrus.bundles</groupId>
@@ -168,11 +205,6 @@
       <groupId>org.pentaho</groupId>
       <artifactId>json</artifactId>
       <version>${pentaho-json.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>pentaho</groupId>
-      <artifactId>pdi-osgi-bridge-core</artifactId>
-      <version>${pdi-osgi-bridge.version}</version>
     </dependency>
     <dependency>
       <groupId>org.pentaho</groupId>
@@ -251,161 +283,43 @@
         </exclusion>
       </exclusions>
     </dependency>
+
+    <!-- Kettle plugin APIs -->
     <dependency>
-      <groupId>org.pentaho</groupId>
-      <artifactId>pentaho-hadoop-shims-common-mapreduce</artifactId>
-      <version>${pentaho-hadoop-shims.version}</version>
-      <exclusions>
-        <exclusion>
-          <groupId>*</groupId>
-          <artifactId>*</artifactId>
-        </exclusion>
-      </exclusions>
+      <groupId>org.pentaho.di.plugins</groupId>
+      <artifactId>pentaho-metastore-locator-api</artifactId>
+      <version>${project.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.pentaho</groupId>
-      <artifactId>shim-api-core</artifactId>
-      <version>${pentaho-hadoop-shims.version}</version>
-      <exclusions>
-        <exclusion>
-          <groupId>*</groupId>
-          <artifactId>*</artifactId>
-        </exclusion>
-      </exclusions>
+      <groupId>org.pentaho.di.plugins</groupId>
+      <artifactId>pentaho-kettle-repository-locator-api</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.pentaho.di.plugins</groupId>
+      <artifactId>file-open-save-new-api</artifactId>
+      <version>${project.version}</version>
     </dependency>
 
     <!--  Pentaho reporting dependencies -->
     <dependency>
-      <groupId>org.pentaho.reporting.engine</groupId>
-      <artifactId>classic-extensions</artifactId>
-      <version>${pentaho-reporting.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.pentaho.reporting.engine</groupId>
-      <artifactId>classic-extensions-drill-down</artifactId>
-      <version>${pentaho-reporting.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.pentaho.reporting.engine</groupId>
-      <artifactId>classic-extensions-kettle</artifactId>
-      <version>${pentaho-reporting.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.pentaho.reporting.engine</groupId>
-      <artifactId>classic-extensions-mondrian</artifactId>
-      <version>${pentaho-reporting.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.pentaho.reporting.engine</groupId>
-      <artifactId>classic-extensions-olap4j</artifactId>
-      <version>${pentaho-reporting.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.pentaho.reporting.engine</groupId>
-      <artifactId>classic-extensions-pmd</artifactId>
-      <version>${pentaho-reporting.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.pentaho.reporting.engine</groupId>
-      <artifactId>classic-extensions-reportdesigner-parser</artifactId>
-      <version>${pentaho-reporting.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.pentaho.reporting.engine</groupId>
-      <artifactId>classic-extensions-sampledata</artifactId>
-      <version>${pentaho-reporting.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.pentaho.reporting.engine</groupId>
-      <artifactId>classic-extensions-scripting</artifactId>
-      <version>${pentaho-reporting.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.pentaho.reporting.engine</groupId>
-      <artifactId>classic-extensions-toc</artifactId>
-      <version>${pentaho-reporting.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.pentaho.reporting.engine</groupId>
-      <artifactId>classic-extensions-xpath</artifactId>
-      <version>${pentaho-reporting.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.pentaho.reporting.engine</groupId>
-      <artifactId>legacy-charts</artifactId>
-      <version>${pentaho-reporting.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.pentaho.reporting.engine</groupId>
-      <artifactId>legacy-functions</artifactId>
-      <version>${pentaho-reporting.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.pentaho.reporting.engine</groupId>
-      <artifactId>wizard-core</artifactId>
+      <groupId>org.pentaho.reporting.library</groupId>
+      <artifactId>libformula</artifactId>
       <version>${pentaho-reporting.version}</version>
     </dependency>
 
-    <!-- OSGi Dependencies -->
-    <!-- Because of: -->
-    <!-- pentaho-platform-core (PentahoSystem) and pdi-osgi-bridge-core (KarafLifecycleListener and OSGIPluginRegistryExtension) -->
     <dependency>
-       <groupId>org.osgi</groupId>
-       <artifactId>org.osgi.core</artifactId>
-       <scope>compile</scope>
+      <groupId>jakarta.annotation</groupId>
+      <artifactId>jakarta.annotation-api</artifactId>
+      <version>1.3.5</version>
+      <exclusions>
+        <exclusion>
+          <groupId>*</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
-    <!-- Karaf Dependencies -->
-    <dependency>
-      <groupId>org.apache.karaf</groupId>
-      <artifactId>org.apache.karaf.main</artifactId>
-      <exclusions>
-        <exclusion>
-          <groupId>*</groupId>
-          <artifactId>*</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.karaf</groupId>
-      <artifactId>org.apache.karaf.util</artifactId>
-      <exclusions>
-        <exclusion>
-          <groupId>*</groupId>
-          <artifactId>*</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.karaf.jaas</groupId>
-      <artifactId>org.apache.karaf.jaas.boot</artifactId>
-      <exclusions>
-        <exclusion>
-          <groupId>*</groupId>
-          <artifactId>*</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.karaf.diagnostic</groupId>
-      <artifactId>org.apache.karaf.diagnostic.boot</artifactId>
-      <exclusions>
-        <exclusion>
-          <groupId>*</groupId>
-          <artifactId>*</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.karaf.specs</groupId>
-      <artifactId>org.apache.karaf.specs.activator</artifactId>
-      <exclusions>
-        <exclusion>
-          <groupId>*</groupId>
-          <artifactId>*</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
 
     <!-- Third-party JDBC dependencies -->
     <dependency>
@@ -564,16 +478,28 @@
       </exclusions>
     </dependency>
     <dependency>
-      <groupId>log4j</groupId>
-      <artifactId>apache-log4j-extras</artifactId>
-    </dependency>
-    <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-log4j12</artifactId>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-slf4j-impl</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-1.2-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-jcl</artifactId>
     </dependency>
     <dependency>
       <groupId>org.glassfish.metro</groupId>
@@ -709,25 +635,231 @@
         </exclusion>
       </exclusions>
     </dependency>
+    <!-- needed for google vfs plugin and ee features -->
+    <dependency>
+      <groupId>com.google.http-client</groupId>
+      <artifactId>google-http-client</artifactId>
+      <version>${google-http-client.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-lang3</artifactId>
+      <version>${commons-lang3.version}</version>
+      <scope>compile</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>*</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <!-- pentaho-big-data-legacy-core is required in both artifacts because of the dependency in kafka streaming plugin -->
+    <!-- otherwise this is only needed by the big data plugin -->
+    <dependency>
+      <groupId>pentaho</groupId>
+      <artifactId>pentaho-big-data-legacy-core</artifactId>
+      <version>${big-data-plugin.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>*</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <!--OSGi Dependencies-->
+    <!--Because of:-->
+    <!--pentaho-platform-core (PentahoSystem) and pdi-osgi-bridge-core (KarafLifecycleListener and OSGIPluginRegistryExtension)-->
+    <!--Still needed for a no-osgi build because of PentahoSystem dependency -->
+    <dependency>
+      <groupId>org.osgi</groupId>
+      <artifactId>org.osgi.core</artifactId>
+      <version>${osgi.core.version}</version>
+      <scope>compile</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>*</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
   </dependencies>
+
+  <profiles>
+
+    <profile>
+      <id>default-no-osgi</id>
+      <activation>
+        <property>
+          <name>!osgi</name>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <artifactId>maven-assembly-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>assembly_package</id>
+                <phase>package</phase>
+                <goals>
+                  <goal>single</goal>
+                </goals>
+                <configuration>
+                  <descriptors>
+                    <desciptor>${basedir}/src/assemblies/assembly.xml</desciptor>
+                  </descriptors>
+                  <appendAssemblyId>false</appendAssemblyId>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <profile>
+      <id>osgi</id>
+      <activation>
+        <property>
+          <name>osgi</name>
+        </property>
+      </activation>
+      <dependencies>
+        <dependency>
+          <groupId>pentaho</groupId>
+          <artifactId>pdi-osgi-bridge-core</artifactId>
+          <version>${pdi-osgi-bridge.version}</version>
+        </dependency>
+
+        <dependency>
+          <groupId>org.pentaho</groupId>
+          <artifactId>pentaho-hadoop-shims-common-mapreduce</artifactId>
+          <version>${pentaho-hadoop-shims.version}</version>
+          <exclusions>
+            <exclusion>
+              <groupId>*</groupId>
+              <artifactId>*</artifactId>
+            </exclusion>
+          </exclusions>
+        </dependency>
+        <dependency>
+          <groupId>org.pentaho</groupId>
+          <artifactId>shim-api-core</artifactId>
+          <version>${pentaho-hadoop-shims.version}</version>
+          <exclusions>
+            <exclusion>
+              <groupId>*</groupId>
+              <artifactId>*</artifactId>
+            </exclusion>
+          </exclusions>
+        </dependency>
+
+        <!-- Karaf Dependencies -->
+        <dependency>
+          <groupId>org.apache.karaf</groupId>
+          <artifactId>org.apache.karaf.main</artifactId>
+          <exclusions>
+            <exclusion>
+              <groupId>*</groupId>
+              <artifactId>*</artifactId>
+            </exclusion>
+          </exclusions>
+        </dependency>
+        <dependency>
+          <groupId>org.apache.karaf</groupId>
+          <artifactId>org.apache.karaf.util</artifactId>
+          <exclusions>
+            <exclusion>
+              <groupId>*</groupId>
+              <artifactId>*</artifactId>
+            </exclusion>
+          </exclusions>
+        </dependency>
+        <dependency>
+          <groupId>org.apache.karaf.jaas</groupId>
+          <artifactId>org.apache.karaf.jaas.boot</artifactId>
+          <exclusions>
+            <exclusion>
+              <groupId>*</groupId>
+              <artifactId>*</artifactId>
+            </exclusion>
+          </exclusions>
+        </dependency>
+        <dependency>
+          <groupId>org.apache.karaf.diagnostic</groupId>
+          <artifactId>org.apache.karaf.diagnostic.boot</artifactId>
+          <exclusions>
+            <exclusion>
+              <groupId>*</groupId>
+              <artifactId>*</artifactId>
+            </exclusion>
+          </exclusions>
+        </dependency>
+        <dependency>
+          <groupId>org.apache.karaf.specs</groupId>
+          <artifactId>org.apache.karaf.specs.activator</artifactId>
+          <exclusions>
+            <exclusion>
+              <groupId>*</groupId>
+              <artifactId>*</artifactId>
+            </exclusion>
+          </exclusions>
+        </dependency>
+        <dependency>
+          <groupId>org.apache.karaf.specs</groupId>
+          <artifactId>org.apache.karaf.specs.locator</artifactId>
+          <version>${karaf.version}</version>
+          <exclusions>
+            <exclusion>
+              <groupId>*</groupId>
+              <artifactId>*</artifactId>
+            </exclusion>
+          </exclusions>
+        </dependency>
+      </dependencies>
+      <build>
+        <plugins>
+          <plugin>
+            <artifactId>maven-assembly-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>assembly_package</id>
+                <phase>package</phase>
+                <goals>
+                  <goal>single</goal>
+                </goals>
+                <configuration>
+                  <descriptors>
+                    <desciptor>${basedir}/src/assemblies/assembly-osgi.xml</desciptor>
+                  </descriptors>
+                  <appendAssemblyId>true</appendAssemblyId>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+  </profiles>
 
   <build>
     <plugins>
       <plugin>
-      <artifactId>maven-dependency-plugin</artifactId>
-      <executions>
-      <execution>
-        <id>copy-libs</id>
-        <phase>generate-resources</phase>
-        <goals>
-          <goal>copy-dependencies</goal>
-        </goals>
-        <configuration>
-          <includeScope>compile</includeScope>
-          <outputDirectory>${assembly.dir}</outputDirectory>
-        </configuration>
-      </execution>
-      </executions>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>copy-libs</id>
+            <phase>generate-resources</phase>
+            <goals>
+              <goal>copy-dependencies</goal>
+            </goals>
+            <configuration>
+              <includeScope>compile</includeScope>
+              <outputDirectory>${assembly.dir}</outputDirectory>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>

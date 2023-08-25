@@ -2,7 +2,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2002-2019 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2002-2022 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -54,6 +54,7 @@ import org.pentaho.di.trans.step.StepMeta;
 import org.pentaho.di.trans.step.StepMetaInjectionInterface;
 import org.pentaho.di.trans.step.StepMetaInterface;
 import org.pentaho.di.trans.steps.textfileoutput.TextFileField;
+import org.pentaho.di.trans.steps.textfileoutput.TextFileOutputData;
 import org.pentaho.di.trans.steps.textfileoutput.TextFileOutputMeta;
 import org.pentaho.metastore.api.IMetaStore;
 import org.w3c.dom.Node;
@@ -335,5 +336,53 @@ public class ConcatFieldsMeta extends TextFileOutputMeta implements StepMetaInte
   @Override
   public StepMetaInjectionInterface getStepMetaInjectionInterface() {
     return new ConcatFieldsMetaInjection( this );
+  }
+
+  @Override
+  protected void calcMetaWithFieldOptions( TextFileOutputData data ) {
+    super.calcMetaWithFieldOptions( data );
+  }
+
+  /**
+   * <p>Creates a copy of the meta information of the modified input fields, so that we don't make any changes to the
+   * original meta information.</p>
+   * <p>It is based on the original meta information and augmented with the information the user configured.</p>
+   *
+   * @param data
+   */
+  protected synchronized void calcMetaWithFieldOptions( ConcatFieldsData data ) {
+    if ( null == metaWithFieldOptions ) {
+      if ( !Utils.isEmpty( getOutputFields() ) ) {
+        metaWithFieldOptions = new ValueMetaInterface[ getOutputFields().length ];
+
+        for ( int i = 0; i < getOutputFields().length; ++i ) {
+          ValueMetaInterface v = data.inputRowMetaModified.getValueMeta( data.fieldnrs[ i ] );
+
+          if ( v != null ) {
+            metaWithFieldOptions[ i ] = v.clone();
+
+            TextFileField field = getOutputFields()[ i ];
+            metaWithFieldOptions[ i ].setLength( field.getLength() );
+            metaWithFieldOptions[ i ].setPrecision( field.getPrecision() );
+            if ( !Utils.isEmpty( field.getFormat() ) ) {
+              metaWithFieldOptions[ i ].setConversionMask( field.getFormat() );
+            }
+            metaWithFieldOptions[ i ].setDecimalSymbol( field.getDecimalSymbol() );
+            metaWithFieldOptions[ i ].setGroupingSymbol( field.getGroupingSymbol() );
+            metaWithFieldOptions[ i ].setCurrencySymbol( field.getCurrencySymbol() );
+            metaWithFieldOptions[ i ].setTrimType( field.getTrimType() );
+            if ( !Utils.isEmpty( getEncoding() ) ) {
+              metaWithFieldOptions[ i ].setStringEncoding( getEncoding() );
+            }
+
+            // enable output padding by default to be compatible with v2.5.x
+            //
+            metaWithFieldOptions[ i ].setOutputPaddingEnabled( true );
+          }
+        }
+      } else {
+        metaWithFieldOptions = null;
+      }
+    }
   }
 }

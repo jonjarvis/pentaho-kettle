@@ -2,7 +2,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2002-2019 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2002-2023 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -26,6 +26,7 @@ import com.google.common.annotations.VisibleForTesting;
 import org.pentaho.di.base.AbstractBaseCommandExecutor;
 import org.pentaho.di.base.CommandExecutorCodes;
 import org.pentaho.di.base.Params;
+import org.pentaho.di.connections.ConnectionManager;
 import org.pentaho.di.core.Const;
 import org.pentaho.di.core.Result;
 import org.pentaho.di.core.exception.KettleException;
@@ -40,6 +41,7 @@ import org.pentaho.di.core.vfs.KettleVFS;
 import org.pentaho.di.i18n.BaseMessages;
 import org.pentaho.di.job.Job;
 import org.pentaho.di.job.JobMeta;
+import org.pentaho.di.metastore.MetaStoreConst;
 import org.pentaho.di.repository.RepositoriesMeta;
 import org.pentaho.di.repository.Repository;
 import org.pentaho.di.repository.RepositoryDirectoryInterface;
@@ -89,10 +91,11 @@ public class KitchenCommandExecutor extends AbstractBaseCommandExecutor {
     Repository repository = null;
 
     try {
-
       if ( getMetaStore() == null ) {
-        setMetaStore( createDefaultMetastore() );
+        setMetaStore( MetaStoreConst.getDefaultMetastore() );
       }
+
+      ConnectionManager.getInstance().setMetastoreSupplier( MetaStoreConst.getDefaultMetastoreSupplier() );
 
       // Read kettle job specified on command-line?
       if ( !Utils.isEmpty( params.getRepoName() ) || !Utils.isEmpty( params.getLocalFile() ) ) {
@@ -299,11 +302,6 @@ public class KitchenCommandExecutor extends AbstractBaseCommandExecutor {
 
     if ( directory == null ) {
       return null; // not much we can do here
-    }
-
-    // Add the IMetaStore of the repository to our delegation
-    if ( repository.getMetaStore() != null && getMetaStore() != null ) {
-      getMetaStore().addMetaStore( repository.getMetaStore() );
     }
 
     // Load a job

@@ -2,7 +2,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2002-2021 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2002-2022 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -22,7 +22,6 @@
 
 package org.pentaho.di.trans.steps.fileinput.text;
 
-import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -284,13 +283,13 @@ public class TextFileInputUtils {
     return strings.toArray( new String[strings.size()] );
   }
 
-  public static final String getLine( LogChannelInterface log, InputStreamReader reader, int formatNr,
-      StringBuilder line ) throws KettleFileException {
+  public static final String getLine( LogChannelInterface log, BufferedInputStreamReader reader, int formatNr,
+                                      StringBuilder line ) throws KettleFileException {
     EncodingType type = EncodingType.guessEncodingType( reader.getEncoding() );
     return getLine( log, reader, type, formatNr, line );
   }
 
-  public static final String getLine( LogChannelInterface log, InputStreamReader reader, EncodingType encodingType,
+  public static final String getLine( LogChannelInterface log, BufferedInputStreamReader reader, EncodingType encodingType,
                                       int fileFormatType, StringBuilder line, String regex )
     throws KettleFileException {
 
@@ -298,7 +297,7 @@ public class TextFileInputUtils {
 
   }
 
-  public static final String getLine( LogChannelInterface log, InputStreamReader reader, EncodingType encodingType,
+  public static final String getLine( LogChannelInterface log, BufferedInputStreamReader reader, EncodingType encodingType,
                                       int fileFormatType, StringBuilder line, String regex, String escapeChar )
     throws KettleFileException {
 
@@ -312,13 +311,13 @@ public class TextFileInputUtils {
    * on the second position how many lines from file were read to get a full line
    *
    */
-  public static final TextFileLine getLine( LogChannelInterface log, InputStreamReader reader, EncodingType encodingType,
+  public static final TextFileLine getLine( LogChannelInterface log, BufferedInputStreamReader reader, EncodingType encodingType,
                                             int fileFormatType, StringBuilder line, String regex, long lineNumberInFile )
     throws KettleFileException {
     return getLine( log, reader, encodingType, fileFormatType, line, regex, "", lineNumberInFile );
   }
 
-  public static final TextFileLine getLine( LogChannelInterface log, InputStreamReader reader, EncodingType encodingType,
+  public static final TextFileLine getLine( LogChannelInterface log, BufferedInputStreamReader reader, EncodingType encodingType,
                                       int fileFormatType, StringBuilder line, String regex, String escapeChar, long lineNumberInFile )
     throws KettleFileException {
 
@@ -356,12 +355,12 @@ public class TextFileInputUtils {
   }
 
 
-  public static final String getLine( LogChannelInterface log, InputStreamReader reader, EncodingType encodingType,
+  public static final String getLine( LogChannelInterface log, BufferedInputStreamReader reader, EncodingType encodingType,
       int formatNr, StringBuilder line ) throws KettleFileException {
     int c = 0;
     line.setLength( 0 );
     try {
-      switch ( formatNr ) {
+      switch( formatNr ) {
         case TextFileInputMeta.FILE_FORMAT_DOS:
           while ( c >= 0 ) {
             c = reader.read();
@@ -394,14 +393,23 @@ public class TextFileInputUtils {
           }
           break;
         case TextFileInputMeta.FILE_FORMAT_MIXED:
-          // in mixed mode we suppose the LF is the last char and CR is ignored
-          // not for MAC OS 9 but works for Mac OS X. Mac OS 9 can use UNIX-Format
+          // in mixed mode we suppose that either 1) LF is the last char, or 2) CR is last character if followed by a
+          // non-linefeed character
           while ( c >= 0 ) {
             c = reader.read();
 
             if ( encodingType.isLinefeed( c ) ) {
               return line.toString();
-            } else if ( !encodingType.isReturn( c ) ) {
+            } else if ( encodingType.isReturn( c ) ) {
+              if ( reader.markSupported() ) {
+                reader.mark( 1 );
+                c = reader.read();
+                if ( !encodingType.isLinefeed( c ) ) {
+                  reader.reset();
+                }
+                return line.toString();
+              }
+            } else {
               if ( c >= 0 ) {
                 line.append( (char) c );
               }
@@ -842,28 +850,33 @@ public class TextFileInputUtils {
             }
             pol = sbpol.toString();
           }
-
-          // replace the escaped enclosures with enclosures...
-          if ( contains_escaped_enclosures ) {
+          if ( !Utils.isEmpty( inf.content.escapeCharacter ) && ( inf.content.escapeCharacter.equals( enclosure ) ) && ( contains_escaped_escape || contains_escaped_enclosures ) ) {
+            // replace the escaped enclosures with enclosures...
             String replace = inf.content.escapeCharacter + enclosure;
             String replaceWith = enclosure;
 
             pol = Const.replace( pol, replace, replaceWith );
+          } else {
+            if ( contains_escaped_enclosures ) {
+              String replace = inf.content.escapeCharacter + enclosure;
+              String replaceWith = enclosure;
+
+              pol = Const.replace( pol, replace, replaceWith );
+            }
+
+            contains_escaped_escape = !Utils.isEmpty( inf.content.escapeCharacter ) && pol.contains( inf.content.escapeCharacter + inf.content.escapeCharacter );
+            if ( contains_escaped_escape ) {
+              String replace = inf.content.escapeCharacter + inf.content.escapeCharacter;
+              String replaceWith = inf.content.escapeCharacter;
+
+              pol = Const.replace( pol, replace, replaceWith );
+            }
           }
 
           // replace the escaped separators with separators...
           if ( contains_escaped_separators ) {
             String replace = inf.content.escapeCharacter + delimiter;
             String replaceWith = delimiter;
-
-            pol = Const.replace( pol, replace, replaceWith );
-          }
-
-          // replace the escaped escape with escape...
-          contains_escaped_escape = pol.contains( inf.content.escapeCharacter + inf.content.escapeCharacter );
-          if ( contains_escaped_escape ) {
-            String replace = inf.content.escapeCharacter + inf.content.escapeCharacter;
-            String replaceWith = inf.content.escapeCharacter;
 
             pol = Const.replace( pol, replace, replaceWith );
           }
@@ -978,7 +991,7 @@ public class TextFileInputUtils {
       + Pattern.quote( regexChar );
 
     // Remove even number of escaped characters to simplify proceeded escape character detection by regex
-    String textSanitized = text.replace( escapeCharacter + escapeCharacter, "" );
+    String textSanitized = StringUtils.isEmpty( escapeCharacter ) ? text : text.replace( escapeCharacter + escapeCharacter, "" );
 
     Pattern pattern = Pattern.compile( regex );
     Matcher matcher = pattern.matcher( textSanitized );
@@ -996,13 +1009,13 @@ public class TextFileInputUtils {
    *
    */
 
-  public static long skipLines( LogChannelInterface log, InputStreamReader reader, EncodingType encodingType,
+  public static long skipLines( LogChannelInterface log, BufferedInputStreamReader reader, EncodingType encodingType,
                                 int fileFormatType, StringBuilder line, int nrLinesToSkip,
                                 String regex, long lineNumberInFile ) throws KettleFileException {
     return skipLines( log, reader, encodingType, fileFormatType, line, nrLinesToSkip, regex, "", lineNumberInFile );
   }
 
-  public static long skipLines( LogChannelInterface log, InputStreamReader reader, EncodingType encodingType,
+  public static long skipLines( LogChannelInterface log, BufferedInputStreamReader reader, EncodingType encodingType,
                                 int fileFormatType, StringBuilder line, int nrLinesToSkip,
                                 String regex, String escapeChar, long lineNumberInFile ) throws KettleFileException {
 

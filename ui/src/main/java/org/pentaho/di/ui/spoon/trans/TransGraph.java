@@ -3,7 +3,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2002-2019 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2002-2023 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -126,7 +126,6 @@ import org.pentaho.di.trans.TransExecutionConfiguration;
 import org.pentaho.di.trans.TransHopMeta;
 import org.pentaho.di.trans.TransMeta;
 import org.pentaho.di.trans.TransPainter;
-import org.pentaho.di.trans.TransSupplier;
 import org.pentaho.di.trans.debug.BreakPointListener;
 import org.pentaho.di.trans.debug.StepDebugMeta;
 import org.pentaho.di.trans.debug.TransDebugMeta;
@@ -3870,7 +3869,7 @@ public class TransGraph extends AbstractGraph implements XulEventHandler, Redraw
           // memory
           // To be able to completely test this, we need to run it as we would normally do in pan
           //
-          trans = new TransSupplier( transMeta, log, this::createLegacyTrans ).get();
+          trans = this.createLegacyTrans();
 
           trans.setRepository( spoon.getRepository() );
           trans.setMetaStore( spoon.getMetaStore() );
@@ -4278,6 +4277,8 @@ public class TransGraph extends AbstractGraph implements XulEventHandler, Redraw
       @Override
       public void run() {
         try {
+
+          trans.setInitialLogBufferStartLine();
           trans.prepareExecution( args );
 
           // Do we capture data?
@@ -4519,7 +4520,7 @@ public class TransGraph extends AbstractGraph implements XulEventHandler, Redraw
       } else {
         StepMetaInterface meta = stepMeta.getStepMetaInterface();
         if ( !Utils.isEmpty( meta.getReferencedObjectDescriptions() ) ) {
-          referencedMeta = meta.loadReferencedObject( index, spoon.rep, spoon.metaStore, transMeta );
+          referencedMeta = meta.loadReferencedObject( index, spoon.rep, spoon.getMetaStore(), transMeta );
         }
       }
       if ( referencedMeta == null ) {
@@ -5090,7 +5091,7 @@ public class TransGraph extends AbstractGraph implements XulEventHandler, Redraw
     try {
       return new Trans( transMeta, spoon.rep, transMeta.getName(),
         transMeta.getRepositoryDirectory().getPath(),
-        transMeta.getFilename() );
+        transMeta.getFilename(), transMeta);
     } catch ( KettleException e ) {
       throw new RuntimeException( e );
     }

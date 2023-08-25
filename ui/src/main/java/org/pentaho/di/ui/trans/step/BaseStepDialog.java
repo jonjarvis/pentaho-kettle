@@ -2,7 +2,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2002-2020 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2002-2022 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -23,7 +23,6 @@
 package org.pentaho.di.ui.trans.step;
 
 import com.google.common.annotations.VisibleForTesting;
-import java.util.Arrays;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.CCombo;
@@ -215,7 +214,7 @@ public class BaseStepDialog extends Dialog {
   /**
    * A constant indicating a left button alignment.
    */
-  protected static final int BUTTON_ALIGNMENT_LEFT = 1;
+  public static final int BUTTON_ALIGNMENT_LEFT = 1;
 
   /**
    * A constant indicating a right button alignment.
@@ -378,6 +377,11 @@ public class BaseStepDialog extends Dialog {
   public static final void positionBottomRightButtons( Composite composite, Button[] buttons, int margin,
                                                        Control lastControl ) {
     positionBottomButtons( composite, buttons, margin, BUTTON_ALIGNMENT_RIGHT, lastControl );
+  }
+
+  public static final void positionBottomLeftButtons( Composite composite, Button[] buttons, int margin,
+                                          Control lastControl ) {
+    BaseStepDialog.positionBottomButtons( composite, buttons, margin, BUTTON_ALIGNMENT_LEFT, lastControl );
   }
 
   public static final void positionBottomButtons( Composite composite, Button[] buttons, int margin, int alignment,
@@ -802,7 +806,7 @@ public class BaseStepDialog extends Dialog {
   }
 
   @VisibleForTesting
-  String showDbDialogUnlessCancelledOrValid( DatabaseMeta changing, DatabaseMeta origin ) {
+  public String showDbDialogUnlessCancelledOrValid( DatabaseMeta changing, DatabaseMeta origin ) {
     changing.shareVariablesWith( transMeta );
     DatabaseDialog cid = getDatabaseDialog( shell );
     cid.setDatabaseMeta( changing );
@@ -834,11 +838,11 @@ public class BaseStepDialog extends Dialog {
   }
 
   @VisibleForTesting
-  void showDbExistsDialog( DatabaseMeta changing ) {
+  public void showDbExistsDialog( DatabaseMeta changing ) {
     DatabaseDialog.showDatabaseExistsDialog( shell, changing );
   }
 
-  private void reinitConnectionDropDown( CCombo dropDown, String selected ) {
+  public void reinitConnectionDropDown( CCombo dropDown, String selected ) {
     dropDown.removeAll();
     addDatabases( dropDown );
     selectDatabase( dropDown, selected );
@@ -1483,7 +1487,7 @@ public class BaseStepDialog extends Dialog {
 
 
   @VisibleForTesting
-  class AddConnectionListener extends SelectionAdapter {
+  public class AddConnectionListener extends SelectionAdapter {
 
     private final CCombo wConnection;
 
@@ -1508,7 +1512,7 @@ public class BaseStepDialog extends Dialog {
   }
 
   @VisibleForTesting
-  class EditConnectionListener extends SelectionAdapter {
+  public class EditConnectionListener extends SelectionAdapter {
 
     private final CCombo wConnection;
 

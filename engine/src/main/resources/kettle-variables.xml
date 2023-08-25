@@ -578,5 +578,60 @@
     <variable>SHELL_STEP_ENVIRONMENT_VARIABLES_TO_IGNORE</variable>
     <default-value>org.osgi.framework.system.packages.extra</default-value>
   </kettle-variable>
-</kettle-variables>
 
+  <kettle-variable>
+    <description>System wide flag to control behavior of the ExecuteTransformationStep and ExecuteJobStep when a file is specified.
+      This only is used when PDI is connected to repository.
+      Y - It is possible specify a file with the extension or not that is saved in repository
+      N - Should not be specified the extension, in other words, should be specified the name of file saved in repository.
+    </description>
+    <variable>KETTLE_COMPATIBILITY_INVOKE_FILES_WITH_OR_WITHOUT_FILE_EXTENSION</variable>
+    <default-value>Y</default-value>
+  </kettle-variable>
+
+  <kettle-variable>
+    <description>System-wide flag to keep legacy behavior on json input step. See PDI-19445 and PDI-18521 for details.
+      Y - Uses the old behaviour before 8.3.0.10
+      N - Uses the correct behavior implemented on PDI-18521 after 8.3.0.10
+    </description>
+    <variable>KETTLE_COMPATIBILITY_JSON_INPUT_LEGACY_MODE</variable>
+    <default-value>N</default-value>
+  </kettle-variable>
+
+  <kettle-variable>
+    <description>This environment variable is used to define which calculation method is to be used by the 'Add a Checksum' step:
+      "BYTES" (default) - based on Byte representation of fields; as in versions since 8.1
+      "PENTAHO_STRINGS" - based on Pentaho String representation of fields (applying format masks); as in versions until 7.1
+      "NATIVE_STRINGS" - based on Native String representation of fields; as in version 8.0</description>
+    <variable>KETTLE_DEFAULT_CHECKSUM_EVALUATION_METHOD</variable>
+    <default-value>BYTES</default-value>
+  </kettle-variable>
+
+  <kettle-variable>
+    <description>This environment variable is used to define how DateDiff ('Modified JavaScript value' step) performs regarding DST (Daylight Savings Time):
+      "N" (default) - uses local time, meaning it assumes a continuum between the two given dates ignoring any time-hop that may had occurred between them
+      "Y" - uses UTC, meaning it will take into acount any time-hop that may had occurred between the two given dates</description>
+    <variable>KETTLE_DATEDIFF_DST_AWARE</variable>
+    <default-value>N</default-value>
+  </kettle-variable>
+
+  <kettle-variable>
+    <description>This environment variable is used to log info of logobjecttype GENERAL </description>
+    <variable>KETTLE_LOG_GENERAL_OBJECTS_TO_DI_LOGGER</variable>
+    <default-value>N</default-value>
+  </kettle-variable>
+
+  <kettle-variable>
+    <description>This environment variable is used to allow the Filter step to treat nulls as not being 0</description>
+    <variable>KETTLE_FILTER_TREAT_NULLS_AS_NOT_ZERO</variable>
+    <default-value>N</default-value>
+  </kettle-variable>
+
+  <kettle-variable>
+    <description>Set this variable to have the Python Executor step consider null/empty lines. Consider the following behaviour: Leaving it empty, will have the step ignore null lines. Setting it will have the step replace these lines with the vallue added. (ex. NaN)
+    </description>
+    <variable>KETTLE_PYTHON_STEP_REPLACE_NULLS</variable>
+    <default-value></default-value>
+  </kettle-variable>
+
+</kettle-variables>

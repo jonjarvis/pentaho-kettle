@@ -2,7 +2,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2002-2019 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2002-2022 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -255,9 +255,12 @@ public class JobEntrySetVariables extends JobEntryBase implements Cloneable, Job
 
       if ( variableName != null ) {
         for ( int i = 0; i < variableName.length; i++ ) {
-          variables.add( variableName[ i ] );
-          variableValues.add( variableValue[ i ] );
-          variableTypes.add( variableType[ i ] );
+          if ( ( variables.contains( variableName[ i ] ) && replaceVars ) || !variables.contains(
+            variableName[ i ] ) ) {
+            variables.add( variableName[ i ] );
+            variableValues.add( variableValue[ i ] );
+            variableTypes.add( variableType[ i ] );
+          }
         }
       }
 
@@ -369,6 +372,7 @@ public class JobEntrySetVariables extends JobEntryBase implements Cloneable, Job
       logError( BaseMessages.getString( PKG, "JobEntrySetVariables.UnExcpectedError", e.getMessage() ) );
     }
 
+    setLoggingObjectInUse( false );
     return result;
   }
 

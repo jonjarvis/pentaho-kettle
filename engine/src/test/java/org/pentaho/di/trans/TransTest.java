@@ -2,7 +2,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2002-2020 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2002-2021 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -40,6 +40,8 @@ import org.pentaho.di.core.exception.KettleException;
 import org.pentaho.di.core.logging.LogChannel;
 import org.pentaho.di.core.logging.LogChannelInterface;
 import org.pentaho.di.core.logging.LogStatus;
+import org.pentaho.di.core.logging.LoggingObjectInterface;
+import org.pentaho.di.core.logging.LoggingObjectLifecycleInterface;
 import org.pentaho.di.core.logging.StepLogTable;
 import org.pentaho.di.core.logging.TransLogTable;
 import org.pentaho.di.core.variables.VariableSpace;
@@ -55,6 +57,7 @@ import org.pentaho.di.trans.step.StepMeta;
 import org.pentaho.di.trans.step.StepMetaDataCombi;
 import org.pentaho.di.trans.step.StepMetaInterface;
 import org.powermock.api.mockito.PowerMockito;
+import org.powermock.core.classloader.annotations.PowerMockIgnore;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 
@@ -92,8 +95,11 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.powermock.api.mockito.PowerMockito.whenNew;
+import static org.powermock.reflect.Whitebox.getMethods;
+import static org.powermock.reflect.Whitebox.setInternalState;
 
 @RunWith ( PowerMockRunner.class )
+@PowerMockIgnore( "jdk.internal.reflect.*" )
 @PrepareForTest( { Database.class, Trans.class } )
 public class TransTest {
   @ClassRule public static RestorePDIEngineEnvironment env = new RestorePDIEngineEnvironment();
@@ -230,8 +236,8 @@ public class TransTest {
     when( meta.listVariables() ).thenReturn( new String[] {} );
     when( meta.listParameters() ).thenReturn( new String[] { testParam } );
     when( meta.getParameterValue( testParam ) ).thenReturn( testParamValue );
-    FileObject ktr = KettleVFS.createTempFile( "parameters", ".ktr", "ram://" );
-    try ( OutputStream outputStream = ktr.getContent().getOutputStream( true ) ) {
+    FileObject ktr = KettleVFS.createTempFile( "parameters", ".ktr", KettleVFS.TEMP_DIR );
+    try ( OutputStream outputStream = ktr.getContent().getOutputStream() ) {
       InputStream inputStream = new ByteArrayInputStream( "<transformation></transformation>".getBytes() );
       IOUtils.copy( inputStream, outputStream );
     }
@@ -1114,5 +1120,33 @@ public class TransTest {
     trans.setSteps( steps );
 
     assertEquals( nrActiveSteps, trans.nrActiveSteps() );
+  }
+
+  @Test
+  public void testTransLoggingObjectLifecycleInterface() {
+    Trans trans = new Trans();
+
+    assertTrue( trans instanceof LoggingObjectLifecycleInterface );
+    assertEquals( 2, getMethods( Trans.class, "callBeforeLog", "callAfterLog" ).length );
+  }
+
+  @Test
+  public void testJobCallBeforeLog() {
+    Trans trans = new Trans();
+    LoggingObjectInterface parent = mock( LoggingObjectInterface.class );
+    setInternalState( trans, "parent", parent );
+
+    trans.callBeforeLog();
+    verify( parent, times( 1 ) ).callBeforeLog();
+  }
+
+  @Test
+  public void testJobCallAfterLog() {
+    Trans trans = new Trans();
+    LoggingObjectInterface parent = mock( LoggingObjectInterface.class );
+    setInternalState( trans, "parent", parent );
+
+    trans.callAfterLog();
+    verify( parent, times( 1 ) ).callAfterLog();
   }
 }

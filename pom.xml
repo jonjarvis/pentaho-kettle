@@ -6,7 +6,7 @@
 
   <groupId>org.pentaho.di</groupId>
   <artifactId>pdi</artifactId>
-  <version>9.2.0.0-SNAPSHOT</version>
+  <version>9.6.0.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>Pentaho Data Integration</name>
@@ -16,7 +16,7 @@
   <parent>
     <groupId>org.pentaho</groupId>
     <artifactId>pentaho-ce-jar-parent-pom</artifactId>
-    <version>9.2.0.0-SNAPSHOT</version>
+    <version>9.6.0.0-SNAPSHOT</version>
   </parent>
 
   <scm>
@@ -46,29 +46,27 @@
   </licenses>
 
   <properties>
-    <maven.compiler.source>1.8</maven.compiler.source>
-    <maven.compiler.target>1.8</maven.compiler.target>
     <maven.build.timestamp.format>yyyy-MM-dd hh.mm.ss</maven.build.timestamp.format>
-    <maven-surefire-plugin.argLine>-Duser.timezone=UTC -Dfile.encoding=UTF-8 -Duser.language=en -Duser.country=US</maven-surefire-plugin.argLine>
+    <maven-surefire-plugin.argLine>-Duser.timezone=UTC -Dfile.encoding=UTF-8 -Duser.language=en -Duser.country=US -Djava.locale.providers=COMPAT,SPI</maven-surefire-plugin.argLine>
 
     <!-- License Configuration -->
     <license.licenseName>apache_v2</license.licenseName>
 
     <!-- Pentaho dependencies -->
-    <commons-xul.version>9.2.0.0-SNAPSHOT</commons-xul.version>
-    <pentaho-metastore.version>9.2.0.0-SNAPSHOT</pentaho-metastore.version>
+    <commons-xul.version>9.6.0.0-SNAPSHOT</commons-xul.version>
+    <pentaho-metastore.version>9.6.0.0-SNAPSHOT</pentaho-metastore.version>
 
     <!-- Third-party dependencies -->
     <org.eclipse.swt.version>4.6</org.eclipse.swt.version>
-    <js.version>1.7R3</js.version>
     <commons-beanutils.version>1.9.3</commons-beanutils.version>
-    <guava.version>17.0</guava.version>
+    <guava.version>32.0.1-jre</guava.version>
     <encoder.version>1.2</encoder.version>
-    <h2.version>1.2.131</h2.version>
     <wstx-asl.version>3.2.4</wstx-asl.version>
+    <jsch.version>0.2.9</jsch.version>
 
     <!-- Test dependencies -->
     <mockito-all.version>1.10.19</mockito-all.version>
+    <mockito.version>3.12.4</mockito.version>
 
     <powermock-module-junit4.version>1.7.3</powermock-module-junit4.version>
     <powermock-api-mockito.version>1.7.3</powermock-api-mockito.version>
@@ -117,9 +115,29 @@
         </exclusions>
       </dependency>
       <dependency>
-        <groupId>rhino</groupId>
-        <artifactId>js</artifactId>
-        <version>${js.version}</version>
+        <groupId>org.eclipse.platform</groupId>
+        <artifactId>org.eclipse.jface</artifactId>
+        <version>3.22.0</version>
+      </dependency>
+      <dependency>
+        <groupId>org.eclipse.platform</groupId>
+        <artifactId>org.eclipse.core.commands</artifactId>
+        <version>3.9.800</version>
+      </dependency>
+      <dependency>
+        <groupId>org.eclipse.platform</groupId>
+        <artifactId>org.eclipse.equinox.common</artifactId>
+        <version>3.14.0</version>
+      </dependency>
+      <dependency>
+        <groupId>org.eclipse.platform</groupId>
+        <artifactId>org.eclipse.equinox.bidi</artifactId>
+        <version>1.3.0</version>
+      </dependency>
+      <dependency>
+        <groupId>org.mozilla</groupId>
+        <artifactId>rhino</artifactId>
+        <version>${rhino.version}</version>
         <exclusions>
           <exclusion>
             <groupId>*</groupId>
@@ -142,12 +160,6 @@
         <groupId>com.google.guava</groupId>
         <artifactId>guava</artifactId>
         <version>${guava.version}</version>
-        <exclusions>
-          <exclusion>
-            <groupId>*</groupId>
-            <artifactId>*</artifactId>
-          </exclusion>
-        </exclusions>
       </dependency>
       <dependency>
         <groupId>org.owasp.encoder</groupId>
@@ -176,6 +188,17 @@
         <artifactId>wstx-asl</artifactId>
         <version>${wstx-asl.version}</version>
         <scope>provided</scope>
+      </dependency>
+      <dependency>
+        <groupId>com.github.mwiede</groupId>
+        <artifactId>jsch</artifactId>
+        <version>${jsch.version}</version>
+        <exclusions>
+          <exclusion>
+            <groupId>*</groupId>
+            <artifactId>*</artifactId>
+          </exclusion>
+        </exclusions>
       </dependency>
 
       <!-- Test dependencies -->
@@ -224,6 +247,18 @@
         <artifactId>maven-compiler-plugin</artifactId>
       </plugin>
       <plugin>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <systemPropertyVariables>
+            <user.language>en</user.language>
+            <user.region>US</user.region>
+            <user.timezone>UTC</user.timezone>
+            <file.encoding>UTF-8</file.encoding>
+            <java.locale.providers>COMPAT,SPI</java.locale.providers>
+          </systemPropertyVariables>
+        </configuration>
+      </plugin>
+      <plugin>
         <artifactId>maven-jar-plugin</artifactId>
         <configuration>
           <archive>
@@ -239,6 +274,7 @@
   </build>
 
   <profiles>
+
     <profile>
       <id>base</id>
       <activation>
@@ -255,6 +291,7 @@
         <module>utilities</module>
       </modules>
     </profile>
+
     <profile>
       <id>plugins</id>
       <activation>
@@ -266,6 +303,7 @@
         <module>plugins</module>
       </modules>
     </profile>
+
     <profile>
       <id>assemblies</id>
       <activation>
@@ -277,6 +315,47 @@
         <module>assemblies</module>
       </modules>
     </profile>
+
+    <profile>
+      <id>osgi</id>
+
+      <activation>
+        <property>
+          <name>osgi</name>
+        </property>
+      </activation>
+
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-clean-plugin</artifactId>
+            <executions>
+              <execution>
+                <!-- override clean and don't delete the zips in target, this helps hadoop-addon and makes the pipeline cleaner
+                     if you really need a full cleaning run clean without activating this profile -->
+                <id>default-clean</id>
+                <configuration>
+                  <excludeDefaultDirectories>true</excludeDefaultDirectories>
+                  <filesets>
+                    <fileset>
+                      <directory>${project.build.directory}</directory>
+                      <followSymlinks>false</followSymlinks>
+                      <useDefaultExcludes>true</useDefaultExcludes>
+                      <excludes>
+                        <exclude>*.zip</exclude>
+                      </excludes>
+                    </fileset>
+                  </filesets>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+      
+    </profile>
+
   </profiles>
 
 
@@ -284,7 +363,7 @@
     <repository>
       <id>pentaho-public</id>
       <name>Pentaho Public</name>
-      <url>http://nexus.pentaho.org/content/groups/omni/</url>
+      <url>https://repo.orl.eng.hitachivantara.com/artifactory/pnt-mvn/</url>
       <releases>
         <enabled>true</enabled>
         <updatePolicy>daily</updatePolicy>
@@ -295,5 +374,20 @@
       </snapshots>
     </repository>
   </repositories>
+
+  <pluginRepositories>
+    <pluginRepository>
+      <id>pentaho-public-plugins</id>
+      <name>Pentaho Public Plugins</name>
+      <url>https://repo.orl.eng.hitachivantara.com/artifactory/pnt-mvn/</url>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+      <releases>
+        <updatePolicy>never</updatePolicy>
+      </releases>
+    </pluginRepository>
+  </pluginRepositories>
+
 
 </project>

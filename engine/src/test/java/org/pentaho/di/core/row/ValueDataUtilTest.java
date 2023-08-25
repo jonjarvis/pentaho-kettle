@@ -2,7 +2,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2002-2020 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2002-2022 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -46,6 +46,7 @@ import org.mockito.stubbing.Answer;
 import org.pentaho.di.core.Const;
 import org.pentaho.di.core.exception.KettleFileNotFoundException;
 import org.pentaho.di.core.row.value.ValueMetaBigNumber;
+import org.pentaho.di.core.row.value.ValueMetaNumber;
 import org.pentaho.di.core.util.Utils;
 import org.pentaho.di.core.KettleEnvironment;
 import org.pentaho.di.core.exception.KettleException;
@@ -655,6 +656,61 @@ public class ValueDataUtilTest {
   }
 
   @Test
+  public void testSqRt() throws Exception {
+    ValueMetaInterface vmn = createValueMeta( "num", ValueMetaInterface.TYPE_NUMBER );
+    ValueMetaInterface vmi = createValueMeta( "integer", ValueMetaInterface.TYPE_INTEGER );
+    ValueMetaInterface vmbn = createValueMeta( "bigNum", ValueMetaInterface.TYPE_BIGNUMBER );
+    // Test Kettle number types
+    assertEquals( Double.valueOf( "2.0" ), calculate( "4", ValueMetaInterface.TYPE_NUMBER,
+      CalculatorMetaFunction.CALC_SQUARE_ROOT ) );
+    try {
+      ValueDataUtil.sqrt( vmn, "-0.1" );
+      fail();
+    } catch ( KettleValueException kve ) {
+      assertTrue( true );
+    }
+    try {
+      vmn = new ValueMetaNumber();
+      ValueDataUtil.sqrt( vmn, "hello" );
+      fail();
+    } catch ( KettleValueException kve ) {
+      assertTrue( true );
+    }
+
+    // Test Kettle Integer (Java Long) types
+    assertEquals( Long.valueOf( "2" ), calculate( "4", ValueMetaInterface.TYPE_INTEGER,
+      CalculatorMetaFunction.CALC_SQUARE_ROOT ) );
+    try {
+      ValueDataUtil.sqrt( vmi, "-1" );
+      fail();
+    } catch ( KettleValueException kve ) {
+      assertTrue( true );
+    }
+    try {
+      ValueDataUtil.sqrt( vmi, "hello" );
+      fail();
+    } catch ( KettleValueException kve ) {
+      assertTrue( true );
+    }
+
+    // Test Kettle big Number types
+    assertEquals( BigDecimal.valueOf( Double.valueOf( "2.0" ) ), calculate( "4", ValueMetaInterface.TYPE_BIGNUMBER,
+      CalculatorMetaFunction.CALC_SQUARE_ROOT ) );
+    try {
+      ValueDataUtil.sqrt( vmbn, "-1" );
+      fail();
+    } catch ( KettleValueException kve ) {
+      assertTrue( true );
+    }
+    try {
+      ValueDataUtil.sqrt( vmbn, "hello" );
+      fail();
+    } catch ( KettleValueException kve ) {
+      assertTrue( true );
+    }
+  }
+
+  @Test
   public void testMulitplyBigNumbers() throws  Exception {
     BigDecimal field1 = new BigDecimal( "123456789012345678901.1234567890123456789" );
     BigDecimal field2 = new BigDecimal( "1.0" );
@@ -1012,16 +1068,20 @@ public class ValueDataUtilTest {
         CalculatorMetaFunction.CALC_COMBINATION_2 ) );
     assertEquals( Double.valueOf( "111.80339887498948" ), calculate( "100", "50", ValueMetaInterface.TYPE_NUMBER,
         CalculatorMetaFunction.CALC_COMBINATION_2 ) );
+    assertEquals( Double.valueOf( "100.0" ), calculate( "100", "0", ValueMetaInterface.TYPE_NUMBER,
+      CalculatorMetaFunction.CALC_COMBINATION_2 ) );
 
     // Test Kettle Integer (Java Long) types
     assertEquals( Long.valueOf( "1" ), calculate( "1", "1", ValueMetaInterface.TYPE_INTEGER,
         CalculatorMetaFunction.CALC_COMBINATION_2 ) );
-    assertEquals( Long.valueOf( "2" ), calculate( "2", "2", ValueMetaInterface.TYPE_INTEGER,
+    assertEquals( Long.valueOf( "3" ), calculate( "2", "2", ValueMetaInterface.TYPE_INTEGER,
         CalculatorMetaFunction.CALC_COMBINATION_2 ) );
-    assertEquals( Long.valueOf( "10" ), calculate( "10", "20", ValueMetaInterface.TYPE_INTEGER,
+    assertEquals( Long.valueOf( "22" ), calculate( "10", "20", ValueMetaInterface.TYPE_INTEGER,
         CalculatorMetaFunction.CALC_COMBINATION_2 ) );
-    assertEquals( Long.valueOf( "100" ), calculate( "100", "50", ValueMetaInterface.TYPE_INTEGER,
+    assertEquals( Long.valueOf( "112" ), calculate( "100", "50", ValueMetaInterface.TYPE_INTEGER,
         CalculatorMetaFunction.CALC_COMBINATION_2 ) );
+    assertEquals( Long.valueOf( "100" ), calculate( "100", "0", ValueMetaInterface.TYPE_INTEGER,
+      CalculatorMetaFunction.CALC_COMBINATION_2 ) );
 
     // Test Kettle big Number types
     assertEquals( 0, new BigDecimal( "1.4142135623730951" ).compareTo( (BigDecimal) calculate( "1", "1",
@@ -1032,6 +1092,8 @@ public class ValueDataUtilTest {
         ValueMetaInterface.TYPE_BIGNUMBER, CalculatorMetaFunction.CALC_COMBINATION_2 ) ) );
     assertEquals( 0, new BigDecimal( "111.80339887498948" ).compareTo( (BigDecimal) calculate( "100", "50",
         ValueMetaInterface.TYPE_BIGNUMBER, CalculatorMetaFunction.CALC_COMBINATION_2 ) ) );
+    assertEquals( 0, new BigDecimal( "100.0" ).compareTo( (BigDecimal) calculate( "100", "0",
+      ValueMetaInterface.TYPE_BIGNUMBER, CalculatorMetaFunction.CALC_COMBINATION_2 ) ) );
   }
 
   @Test
@@ -1149,6 +1211,69 @@ public class ValueDataUtilTest {
     assertEquals( BigDecimal.valueOf( Double.valueOf( "-12.35" ) ), calculate( "-12.355", "2",
         ValueMetaInterface.TYPE_BIGNUMBER, CalculatorMetaFunction.CALC_ROUND_2 ) );
   }
+
+  @Test
+  public void testRound3() {
+    ValueMetaInterface vmn = createValueMeta( "num", ValueMetaInterface.TYPE_NUMBER );
+    ValueMetaInterface vmi = createValueMeta( "integer", ValueMetaInterface.TYPE_INTEGER );
+    ValueMetaInterface vmbn = createValueMeta( "bigNum", ValueMetaInterface.TYPE_BIGNUMBER );
+
+    try {
+      // Number
+      assertEquals( Double.valueOf( "-2.0" ), ValueDataUtil.round( vmn, -1.1, BigDecimal.ROUND_UP ) );
+      assertEquals( Double.valueOf( "-1.0" ), ValueDataUtil.round( vmn, -1.1, BigDecimal.ROUND_DOWN ) );
+      assertEquals( Double.valueOf( "-1.0" ), ValueDataUtil.round( vmn, -1.1, BigDecimal.ROUND_CEILING ) );
+      assertEquals( Double.valueOf( "-2.0" ), ValueDataUtil.round( vmn, -1.1, BigDecimal.ROUND_FLOOR ) );
+      assertEquals( Double.valueOf( "-2.0" ), ValueDataUtil.round( vmn, -1.5, BigDecimal.ROUND_HALF_UP ) );
+      assertEquals( Double.valueOf( "-1.0" ), ValueDataUtil.round( vmn, -1.5, BigDecimal.ROUND_HALF_DOWN ) );
+      assertEquals( Double.valueOf( "2.0" ), ValueDataUtil.round( vmn, 2.5, BigDecimal.ROUND_HALF_EVEN ) );
+      assertEquals( Double.valueOf( "1.1" ), ValueDataUtil.round( vmn, 1.1, BigDecimal.ROUND_UNNECESSARY ) );
+
+      // Integer
+      assertEquals( Long.valueOf( "-1" ), ValueDataUtil.round( vmi, Long.valueOf( "-1" ), BigDecimal.ROUND_UP ) );
+      assertEquals( Long.valueOf( "-1" ), ValueDataUtil.round( vmi, Long.valueOf( "-1" ), BigDecimal.ROUND_DOWN ) );
+      assertEquals( Long.valueOf( "-1" ), ValueDataUtil.round( vmi, Long.valueOf( "-1" ), BigDecimal.ROUND_CEILING ) );
+      assertEquals( Long.valueOf( "-1" ), ValueDataUtil.round( vmi, Long.valueOf( "-1" ), BigDecimal.ROUND_FLOOR ) );
+      assertEquals( Long.valueOf( "-1" ), ValueDataUtil.round( vmi, Long.valueOf( "-1" ), BigDecimal.ROUND_HALF_UP ) );
+      assertEquals( Long.valueOf( "-1" ), ValueDataUtil.round( vmi, Long.valueOf( "-1" ), BigDecimal.ROUND_HALF_DOWN ) );
+      assertEquals( Long.valueOf( "-1" ), ValueDataUtil.round( vmi, Long.valueOf( "-1" ), BigDecimal.ROUND_HALF_EVEN ) );
+      assertEquals( Long.valueOf( "-1" ), ValueDataUtil.round( vmi, Long.valueOf( "-1" ), BigDecimal.ROUND_UNNECESSARY ) );
+
+      // Big Number
+      assertEquals( BigDecimal.valueOf( -2 ), ValueDataUtil.round( vmbn, BigDecimal.valueOf( -1.1 ), BigDecimal.ROUND_UP ) );
+      assertEquals( BigDecimal.valueOf( -1 ), ValueDataUtil.round( vmbn, BigDecimal.valueOf( -1.1 ), BigDecimal.ROUND_DOWN ) );
+      assertEquals( BigDecimal.valueOf( -1 ), ValueDataUtil.round( vmbn, BigDecimal.valueOf( -1.1 ), BigDecimal.ROUND_CEILING ) );
+      assertEquals( BigDecimal.valueOf( -2 ), ValueDataUtil.round( vmbn, BigDecimal.valueOf( -1.1 ), BigDecimal.ROUND_FLOOR ) );
+      assertEquals( BigDecimal.valueOf( -2 ), ValueDataUtil.round( vmbn, BigDecimal.valueOf( -1.5 ), BigDecimal.ROUND_HALF_UP ) );
+      assertEquals( BigDecimal.valueOf( -1 ), ValueDataUtil.round( vmbn, BigDecimal.valueOf( -1.5 ), BigDecimal.ROUND_HALF_DOWN ) );
+      assertEquals( BigDecimal.valueOf( 2 ), ValueDataUtil.round( vmbn, BigDecimal.valueOf( 2.5 ), BigDecimal.ROUND_HALF_EVEN ) );
+      assertEquals( BigDecimal.valueOf( 1.1 ), ValueDataUtil.round( vmbn, BigDecimal.valueOf( 1.1 ), BigDecimal.ROUND_UNNECESSARY ) );
+    } catch ( KettleValueException kve ) {
+      fail();
+    }
+
+    try {
+      ValueDataUtil.round( vmn, "hello", BigDecimal.ROUND_UP );
+      fail();
+    } catch ( KettleValueException kve ) {
+      assertTrue( true );
+    }
+
+    try {
+      ValueDataUtil.round( vmi, "hello", BigDecimal.ROUND_UP );
+      fail();
+    } catch ( KettleValueException kve ) {
+      assertTrue( true );
+    }
+
+    try {
+      ValueDataUtil.round( vmbn, "hello", BigDecimal.ROUND_UP );
+      fail();
+    } catch ( KettleValueException kve ) {
+      assertTrue( true );
+    }
+  }
+
 
   @Test
   public void testNVL() {
@@ -1449,6 +1574,8 @@ public class ValueDataUtilTest {
         return ValueDataUtil.getJaroWinkler_Similitude( valueMetaA, dataA, valueMetaB, dataB );
       } else if ( calculatorMetaFunction == CalculatorMetaFunction.CALC_MULTIPLY ) {
         return ValueDataUtil.multiply( valueMetaA, dataA, valueMetaB, dataB );
+      } else if ( calculatorMetaFunction == CalculatorMetaFunction.CALC_SQUARE_ROOT ) {
+        return ValueDataUtil.sqrt( valueMetaA, dataA );
       } else {
         fail( "Invalid CalculatorMetaFunction specified." );
         return null;

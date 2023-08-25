@@ -35,6 +35,7 @@ import org.pentaho.di.plugins.fileopensave.providers.ProviderService;
 import org.pentaho.di.plugins.fileopensave.providers.local.LocalFileProvider;
 import org.pentaho.di.plugins.fileopensave.providers.repository.RepositoryFileProvider;
 import org.pentaho.di.plugins.fileopensave.providers.vfs.VFSFileProvider;
+import org.pentaho.di.plugins.fileopensave.service.ProviderServiceService;
 import org.pentaho.di.ui.core.FileDialogOperation;
 import org.pentaho.di.ui.spoon.Spoon;
 
@@ -45,9 +46,9 @@ import java.util.function.Supplier;
  */
 
 @ExtensionPoint(
-  id = "FileOpenSaveNewExtensionPoint",
-  extensionPointId = "SpoonOpenSaveNew",
-  description = "Open the new file browser"
+        id = "FileOpenSaveNewExtensionPoint",
+        extensionPointId = "SpoonOpenSaveNew",
+        description = "Open the new file browser"
 )
 public class FileOpenSaveExtensionPoint implements ExtensionPointInterface {
 
@@ -57,6 +58,10 @@ public class FileOpenSaveExtensionPoint implements ExtensionPointInterface {
   private Supplier<Spoon> spoonSupplier = Spoon::getInstance;
   private final ProviderService providerService;
 
+  public FileOpenSaveExtensionPoint() {
+    this( ProviderServiceService.get() );
+  }
+
   public FileOpenSaveExtensionPoint( ProviderService providerService ) {
     this.providerService = providerService;
   }
@@ -64,15 +69,18 @@ public class FileOpenSaveExtensionPoint implements ExtensionPointInterface {
   @Override public void callExtensionPoint( LogChannelInterface logChannelInterface, Object o ) throws KettleException {
     FileDialogOperation fileDialogOperation = (FileDialogOperation) o;
 
-    final FileOpenSaveDialog fileOpenSaveDialog =
-      new FileOpenSaveDialog( spoonSupplier.get().getShell(), WIDTH, HEIGHT, logChannelInterface );
-
     resolveProvider( fileDialogOperation );
-    fileOpenSaveDialog.open( fileDialogOperation );
+
+    final FileOpenSaveDialog fileOpenSaveDialog =
+            new FileOpenSaveDialog( spoonSupplier.get().getShell(), WIDTH, HEIGHT, logChannelInterface );
+
+    fileOpenSaveDialog.setProviderFilter(fileDialogOperation.getProviderFilter());
+    fileOpenSaveDialog.open(fileDialogOperation);
 
     fileDialogOperation.setPath( null );
     fileDialogOperation.setFilename( null );
     fileDialogOperation.setConnection( null );
+
 
     if ( !Utils.isEmpty( fileOpenSaveDialog.getProvider() ) ) {
       try {

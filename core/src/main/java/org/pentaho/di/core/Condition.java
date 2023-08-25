@@ -2,7 +2,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2002-2019 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2002-2022 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -420,15 +420,18 @@ public class Condition implements Cloneable, XMLInterface {
             retval = ( fieldMeta.compare( field, fieldMeta2, field2 ) != 0 );
             break;
           case FUNC_SMALLER:
-            if ( fieldMeta.isNull( field ) ) {
-              // BACKLOG-18831
+            // Added this if/else to accommodate for CUST-270
+            if ( "Y".equalsIgnoreCase( System.getProperty( Const.KETTLE_FILTER_TREAT_NULLS_AS_NOT_ZERO, "N" ) )
+              && fieldMeta.isNull( field ) ) {
               retval = false;
             } else {
               retval = ( fieldMeta.compare( field, fieldMeta2, field2 ) < 0 );
             }
             break;
           case FUNC_SMALLER_EQUAL:
-            if ( fieldMeta.isNull( field ) ) {
+            // Added this if/else to accommodate for CUST-270
+            if ( "Y".equalsIgnoreCase( System.getProperty( Const.KETTLE_FILTER_TREAT_NULLS_AS_NOT_ZERO, "N" ) )
+              && fieldMeta.isNull( field ) ) {
               retval = false;
             } else {
               retval = ( fieldMeta.compare( field, fieldMeta2, field2 ) <= 0 );

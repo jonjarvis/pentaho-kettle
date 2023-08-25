@@ -3,7 +3,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2002-2020 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2002-2023 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -26,6 +26,8 @@ package org.pentaho.di.core;
 import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.text.StrBuilder;
+import org.apache.commons.vfs2.FileSystemException;
+import org.apache.commons.vfs2.provider.UriParser;
 import org.apache.http.conn.util.InetAddressUtils;
 import org.pentaho.di.core.exception.KettleException;
 import org.pentaho.di.core.row.ValueMetaInterface;
@@ -749,6 +751,11 @@ public class Const {
   public static final String KETTLE_EMPTY_STRING_DIFFERS_FROM_NULL = "KETTLE_EMPTY_STRING_DIFFERS_FROM_NULL";
 
   /**
+   * System wide flag to allow the Filter step to treat nulls as not being 0 for CUST-270
+   */
+  public static final String KETTLE_FILTER_TREAT_NULLS_AS_NOT_ZERO = "KETTLE_FILTER_TREAT_NULLS_AS_NOT_ZERO";
+
+  /**
    * This flag will prevent Kettle from converting {@code null} strings to empty strings in {@link org.pentaho.di.core.row.value.ValueMetaBase}
    * The default value is {@code false}.
    */
@@ -818,6 +825,21 @@ public class Const {
    */
   public static final String KETTLE_COMPATIBILITY_MEMORY_GROUP_BY_SUM_AVERAGE_RETURN_NUMBER_TYPE =
     "KETTLE_COMPATIBILITY_MEMORY_GROUP_BY_SUM_AVERAGE_RETURN_NUMBER_TYPE";
+
+  /**
+   * System wide flag to control behavior of the ExecuteTransformationStep and ExecuteJobStep when a file is specified.
+   * This only is used when PDI is connected to repository
+   * 'Y' It is possible specify a file with the extension or not that is saved in repository
+   * 'N' Should not be specified the extension, in other words, should be specified the name of file saved in repository.
+   */
+  public static final String KETTLE_COMPATIBILITY_INVOKE_FILES_WITH_OR_WITHOUT_FILE_EXTENSION =
+    "KETTLE_COMPATIBILITY_INVOKE_FILES_WITH_OR_WITHOUT_FILE_EXTENSION";
+
+  /**
+   * System-wide flag to keep legacy behavior on json input step. See PDI-19445 and PDI-18521 for details.
+   */
+  public static final String KETTLE_COMPATIBILITY_JSON_INPUT_LEGACY_MODE = "KETTLE_COMPATIBILITY_JSON_INPUT_LEGACY_MODE";
+
 
   /**
    * You can use this variable to speed up hostname lookup.
@@ -1190,6 +1212,15 @@ public class Const {
   // See PDI-18810 for details
   public static final String KETTLE_COMPATIBILITY_MDI_INJECTED_FILE_ALWAYS_IN_FILESYSTEM = "KETTLE_COMPATIBILITY_MDI_INJECTED_FILE_ALWAYS_IN_FILESYSTEM";
 
+  // See PDI-19138 for details
+  public static final String KETTLE_JSON_INPUT_INCLUDE_NULLS = "KETTLE_JSON_INPUT_INCLUDE_NULLS";
+
+  /**
+   * This property when set to Y force the same output file even when splits is required.
+   * See PDI-19064 for details
+   */
+  public static final String KETTLE_JSON_OUTPUT_FORCE_SAME_OUTPUT_FILE = "KETTLE_JSON_OUTPUT_FORCE_SAME_OUTPUT_FILE";
+
   /**
    * The XML file that contains the list of native import rules
    */
@@ -1248,6 +1279,12 @@ public class Const {
    * A variable to configure Tab size"
    */
   public static final String KETTLE_MAX_TAB_LENGTH = "KETTLE_MAX_TAB_LENGTH";
+
+  /**
+   * A variable to log log info of logobjecttype GENERAL"
+   */
+  public static final String KETTLE_LOG_GENERAL_OBJECTS_TO_DI_LOGGER = "KETTLE_LOG_GENERAL_OBJECTS_TO_DI_LOGGER";
+
 
   /**
    * A variable to configure VFS USER_DIR_IS_ROOT option: should be "true" or "false"
@@ -1382,6 +1419,12 @@ public class Const {
   public static final String SHARED_STREAMING_BATCH_POOL_SIZE = "SHARED_STREAMING_BATCH_POOL_SIZE";
 
   /**
+   * <p>This environment variable is used by the Kinesis consumer to control the number of records retrieved
+   * by the PollingConfig, if used.  Ignored with Enhanced Fan Out./p>
+   */
+  public static final String KINESIS_POLLING_CONFIG_MAX_RECORDS = "KINESIS_POLLING_CONFIG_MAX_RECORDS";
+
+  /**
    * <p>This environment variable is used to specify a location used to deploy a shim driver into PDI.</p>
    */
   public static final String SHIM_DRIVER_DEPLOYMENT_LOCATION = "SHIM_DRIVER_DEPLOYMENT_LOCATION";
@@ -1477,6 +1520,119 @@ public class Const {
    */
   public static final String KETTLE_TIMESTAMP_NUMBER_CONVERSION_MODE_DEFAULT =
     KETTLE_TIMESTAMP_NUMBER_CONVERSION_MODE_LEGACY;
+
+  /**
+   * This environment variable will be used to determine whether file URI strings returned from input steps are returned
+   * encoded (spaces and other special characters escaped) or decoded (default legacy behavior).
+   */
+  public static final String KETTLE_RETURN_ESCAPED_URI_STRINGS = "KETTLE_RETURN_ESCAPED_URI_STRINGS";
+
+  /**
+   * <p>This environment variable is used to define how which calculation method is to be used by the 'Add a Checksum'
+   * step.</p>
+   * <p>Three options exist:</p>
+   * <ul>
+   *   <li>{@link #KETTLE_CHECKSUM_EVALUATION_METHOD_BYTES}: calculate Checksum based on Byte representation of
+   *   fields; as in versions since 8.1</li>
+   *   <li>{@link #KETTLE_CHECKSUM_EVALUATION_METHOD_PENTAHO_STRINGS}: calculate Checksum based on Pentaho String
+   *   representation of fields (applying format masks); as in versions until 7.1</li>
+   *   <li>{@link #KETTLE_CHECKSUM_EVALUATION_METHOD_NATIVE_STRINGS}: calculate Checksum based on Native String
+   *   representation of fields; as in version 8.0</li>
+   * </ul>
+   * <p>The default is {@value #KETTLE_CHECKSUM_EVALUATION_METHOD_DEFAULT}.</p>
+   *
+   * @see #KETTLE_CHECKSUM_EVALUATION_METHOD_BYTES
+   * @see #KETTLE_CHECKSUM_EVALUATION_METHOD_PENTAHO_STRINGS
+   * @see #KETTLE_CHECKSUM_EVALUATION_METHOD_NATIVE_STRINGS
+   * @see #KETTLE_CHECKSUM_EVALUATION_METHOD_DEFAULT
+   */
+  public static final String KETTLE_DEFAULT_CHECKSUM_EVALUATION_METHOD = "KETTLE_DEFAULT_CHECKSUM_EVALUATION_METHOD";
+
+  /**
+   * <p>The value to use for setting the {@link #KETTLE_DEFAULT_CHECKSUM_EVALUATION_METHOD}, so that Checksum is
+   * calculated based on Byte representation of fields. Calculation method used by version 8.1 and after.</p>
+   *
+   * @see #KETTLE_DEFAULT_CHECKSUM_EVALUATION_METHOD
+   * @see #KETTLE_CHECKSUM_EVALUATION_METHOD_PENTAHO_STRINGS
+   * @see #KETTLE_CHECKSUM_EVALUATION_METHOD_NATIVE_STRINGS
+   * @see #KETTLE_CHECKSUM_EVALUATION_METHOD_DEFAULT
+   */
+  public static final String KETTLE_CHECKSUM_EVALUATION_METHOD_BYTES = "BYTES";
+
+  /**
+   * <p>The value to use for setting the {@link #KETTLE_DEFAULT_CHECKSUM_EVALUATION_METHOD}, so that Checksum is
+   * calculated based on Pentaho String representation of fields (applying format masks). Calculation method used by
+   * version 7.1 and prior versions.</p>
+   *
+   * @see #KETTLE_DEFAULT_CHECKSUM_EVALUATION_METHOD
+   * @see #KETTLE_CHECKSUM_EVALUATION_METHOD_BYTES
+   * @see #KETTLE_CHECKSUM_EVALUATION_METHOD_NATIVE_STRINGS
+   * @see #KETTLE_CHECKSUM_EVALUATION_METHOD_DEFAULT
+   */
+  public static final String KETTLE_CHECKSUM_EVALUATION_METHOD_PENTAHO_STRINGS = "PENTAHO_STRINGS";
+
+  /**
+   * <p>The value to use for setting the {@link #KETTLE_DEFAULT_CHECKSUM_EVALUATION_METHOD}, so that Checksum is
+   * calculated based on Native String representation of fields. Calculation method used by version 8.0.</p>
+   *
+   * @see #KETTLE_DEFAULT_CHECKSUM_EVALUATION_METHOD
+   * @see #KETTLE_CHECKSUM_EVALUATION_METHOD_BYTES
+   * @see #KETTLE_CHECKSUM_EVALUATION_METHOD_PENTAHO_STRINGS
+   * @see #KETTLE_CHECKSUM_EVALUATION_METHOD_DEFAULT
+   */
+  public static final String KETTLE_CHECKSUM_EVALUATION_METHOD_NATIVE_STRINGS = "NATIVE_STRINGS";
+
+  /**
+   * <p>The default value for the {@link #KETTLE_DEFAULT_CHECKSUM_EVALUATION_METHOD}.</p>
+   *
+   * @see #KETTLE_DEFAULT_CHECKSUM_EVALUATION_METHOD
+   * @see #KETTLE_CHECKSUM_EVALUATION_METHOD_BYTES
+   * @see #KETTLE_CHECKSUM_EVALUATION_METHOD_PENTAHO_STRINGS
+   * @see #KETTLE_CHECKSUM_EVALUATION_METHOD_NATIVE_STRINGS
+   */
+  public static final String KETTLE_CHECKSUM_EVALUATION_METHOD_DEFAULT = KETTLE_CHECKSUM_EVALUATION_METHOD_BYTES;
+
+  /**
+   * <p>While one assumes that a day has 24 hours, due to daylight savings time settings, it may have 23 hours (the day
+   * Summer time goes into effect) or 25 hours (Winter time).</p>
+   * <p>Imagine Summer time: when clocks reach 1:00, it goes forward 1 hour to 2:00</p>
+   * <p>This means that, when adding 2 hours to 0:30, one gets 3:30</p>
+   * <p>By setting this environment variable to {@code "N"}, DateDiff performs calculations based on local time; as so,
+   * the difference between these two values (3:30 and 0:30) will be 3 hours difference.</p>
+   * <p>Setting this environment variable to {@code "Y"}, DateDiff performs calculations based on UTC time; as so, the
+   * difference between these two values (3:30 and 0:30) will be 2 hours difference.</p>
+   * <p>The default is {@value #KETTLE_DATEDIFF_DST_AWARE_DEFAULT}.</p>
+   *
+   * @see #KETTLE_DATEDIFF_DST_AWARE_DEFAULT
+   */
+  public static final String KETTLE_DATEDIFF_DST_AWARE = "KETTLE_DATEDIFF_DST_AWARE";
+
+  /**
+   * <p>The default value for the {@link #KETTLE_DATEDIFF_DST_AWARE}.</p>
+   *
+   * @see #KETTLE_DATEDIFF_DST_AWARE
+   */
+  public static final String KETTLE_DATEDIFF_DST_AWARE_DEFAULT = "N";
+
+  /**
+   * If true, kettle check for new site files to update in the named cluster every time a named cluster is resolved
+   */
+  public static final String KETTLE_AUTO_UPDATE_SITE_FILE = "KETTLE_AUTO_UPDATE_SITE_FILE";
+
+  /**
+   * If true, use a cache when loading Trans/Job/Step metas vs reading from file system/repository for each load.
+   * Note: cache is currently broken; variable spaces do not get replaced upon loads of the same meta, so parameters
+   * that have changed do not get updated.  This should be off by default.
+   */
+  public static final String KETTLE_USE_META_FILE_CACHE = "KETTLE_USE_META_FILE_CACHE";
+  public static final String KETTLE_USE_META_FILE_CACHE_DEFAULT = "N";
+
+  /**
+   * Value used to replace nulls in Python Executor Step Input Lines. Empty will mean no replacement will be done
+   */
+  public static final String KETTLE_PYTHON_STEP_REPLACE_NULLS = "KETTLE_PYTHON_STEP_REPLACE_NULLS";
+
+
 
   /**
    * rounds double f to any number of places after decimal point Does arithmetic using BigDecimal class to avoid integer
@@ -1587,10 +1743,14 @@ public class Const {
    */
   public static int toInt( String str, int def ) {
     int retval;
-    try {
-      retval = Integer.parseInt( str );
-    } catch ( Exception e ) {
+    if ( str == null ) {
       retval = def;
+    } else {
+      try {
+        retval = Integer.parseInt( str );
+      } catch ( Exception e ) {
+        retval = def;
+      }
     }
     return retval;
   }
@@ -1606,10 +1766,14 @@ public class Const {
    */
   public static long toLong( String str, long def ) {
     long retval;
-    try {
-      retval = Long.parseLong( str );
-    } catch ( Exception e ) {
+    if ( str == null ) {
       retval = def;
+    } else {
+      try {
+        retval = Long.parseLong( str );
+      } catch ( Exception e ) {
+        retval = def;
+      }
     }
     return retval;
   }
@@ -1625,10 +1789,14 @@ public class Const {
    */
   public static double toDouble( String str, double def ) {
     double retval;
-    try {
-      retval = Double.parseDouble( str );
-    } catch ( Exception e ) {
+    if ( str == null ) {
       retval = def;
+    } else {
+      try {
+        retval = Double.parseDouble( str );
+      } catch ( Exception e ) {
+        retval = def;
+      }
     }
     return retval;
   }
@@ -2232,6 +2400,17 @@ public class Const {
   }
 
   /**
+   * Determines if the RUNNING_ON_WEBSPOON_MODE flag is set and returns its boolean value.
+   * This is per user-basis.
+   *
+   * @return Boolean signalig the use of Webspoon mode.
+   */
+  public static boolean isRunningOnWebspoonMode() {
+    return Boolean.parseBoolean( NVL( System.getenv( "RUNNING_ON_WEBSPOON_MODE" ), NVL( System.getProperty( "RUNNING_ON_WEBSPOON_MODE" ),
+            "false" ) ) );
+  }
+
+  /**
    * Looks up the user's home directory (or KETTLE_HOME) for every invocation. This is no longer a static property so
    * the value may be set after this class is loaded.
    *
@@ -2249,6 +2428,18 @@ public class Const {
    */
   public static String getKettleDirectory() {
     return getUserHomeDirectory() + FILE_SEPARATOR + getUserBaseDir();
+  }
+
+  /**
+   * Determines the Kettle user data directory in the user's home directory.
+   * This is per user-basis.
+   *
+   * @return The Kettle user data directory.
+   */
+  public static String getUserDataDirectory() {
+    String dataDir =  getKettleDirectory() + Const.FILE_SEPARATOR + "data";
+    return NVL( System.getenv( "WEBSPOON_USER_HOME" ), NVL( System.getProperty( "WEBSPOON_USER_HOME" ),
+            dataDir ) );
   }
 
   /**
@@ -2335,6 +2526,15 @@ public class Const {
   }
 
   /**
+   * Provides the base wiki documentation url (top-level pentaho-community)
+   *
+   * @return the fully qualified base wiki documentation URL
+   */
+  public static String getBaseWikiDocUrl() {
+    return BaseMessages.getString( PKG, "Const.BaseWikiDocUrl" );
+  }
+
+  /**
    * Provides the documentation url with the configured base + the given URI.
    *
    * @param uri
@@ -2344,19 +2544,24 @@ public class Const {
    * @return the fully qualified documentation URL for the given URI
    */
   public static String getDocUrl( final String uri ) {
-    // initialize the docUrl to point to the top-level doc page
-    String docUrl = getBaseDocUrl();
+
+    // if the uri is not empty, use it to build the URL
     if ( !Utils.isEmpty( uri ) ) {
-      // if the uri is not empty, use it to build the URL
-      if ( uri.startsWith( "http" ) ) {
+      if ( uri.startsWith( WIKI_URL ) ) {
+        // if the link is to the old wiki replace it with the new wiki
+        String docWikiUrl = getBaseWikiDocUrl();
+        String wikiURL = uri.substring( WIKI_URL.length() );
+        return ( wikiURL.startsWith( "/" ) ? docWikiUrl + wikiURL.substring( 1 ) : docWikiUrl + wikiURL );
+      } else if ( uri.startsWith( "http" ) ) {
         // use what is provided, it's already absolute
-        docUrl = uri;
+        return uri;
       } else {
         // the uri provided needs to be assembled
-        docUrl = uri.startsWith( "/" ) ? docUrl + uri.substring( 1 ) : docUrl + uri;
+        String baseDocURL = getBaseDocUrl();
+        return ( uri.startsWith( "/" ) ? baseDocURL + uri.substring( 1 ) : baseDocURL + uri );
       }
     }
-    return docUrl;
+    return getBaseDocUrl();
   }
 
   /**
@@ -2469,7 +2674,7 @@ public class Const {
    */
   public static String nullToEmpty( String source ) {
     if ( source == null ) {
-      return "";
+      return EMPTY_STRING;
     }
     return source;
   }
@@ -2888,6 +3093,8 @@ public class Const {
     // Return list as array
     return splitList.toArray( new String[splitList.size()] );
   }
+
+  private static final String WIKI_URL = "http://wiki.pentaho.com";
 
   private static String removeEnclosure( String stringToSplit, String enclosure ) {
 
@@ -3785,6 +3992,28 @@ public class Const {
       return content;
     }
     return StringEscapeUtils.escapeXml( content );
+  }
+
+
+  /**
+   * Convert a string containing a URI with escaped special characters and return the decoded version depending on
+   * system property settings.
+   * @param uri
+   * @return decoded URI string
+   */
+  public static String optionallyDecodeUriString( String uri ) {
+    boolean decodeUri = !System.getProperty( KETTLE_RETURN_ESCAPED_URI_STRINGS, "N" )
+      .equalsIgnoreCase( "Y" );
+    if ( decodeUri ) {
+      try {
+        return UriParser.decode( uri );
+      } catch ( FileSystemException e ) {
+        // return the raw string if the URI is malformed (bad escape sequence)
+        return uri;
+      }
+    } else {
+      return uri;
+    }
   }
 
   /**

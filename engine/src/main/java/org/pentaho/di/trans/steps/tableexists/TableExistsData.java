@@ -24,6 +24,7 @@ package org.pentaho.di.trans.steps.tableexists;
 
 import org.pentaho.di.core.database.Database;
 import org.pentaho.di.core.row.RowMetaInterface;
+import org.pentaho.di.trans.step.BaseDatabaseStepData;
 import org.pentaho.di.trans.step.BaseStepData;
 import org.pentaho.di.trans.step.StepDataInterface;
 
@@ -32,8 +33,7 @@ import org.pentaho.di.trans.step.StepDataInterface;
  * @since 03-Juin-2008
  *
  */
-public class TableExistsData extends BaseStepData implements StepDataInterface {
-  public Database db;
+public class TableExistsData extends BaseDatabaseStepData implements StepDataInterface {
   public int indexOfTablename;
   public String realSchemaname;
   public RowMetaInterface outputRowMeta;

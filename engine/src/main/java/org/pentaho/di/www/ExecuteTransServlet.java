@@ -2,7 +2,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2002-2020 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2002-2022 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -201,7 +201,7 @@ public class ExecuteTransServlet extends BaseHttpServlet implements CartePluginI
     </tr>
     <tr>
       <td>400</td>
-      <td>When missing mandatory params repo and trans</td>
+      <td>When missing mandatory param trans</td>
     </tr>
     <tr>
       <td>401</td>
@@ -249,10 +249,10 @@ public class ExecuteTransServlet extends BaseHttpServlet implements CartePluginI
 
     PrintWriter out = response.getWriter();
 
-    if ( repOption == null || transOption == null ) {
+    if ( transOption == null ) {
       response.setStatus( HttpServletResponse.SC_BAD_REQUEST );
       out.println( new WebResult( WebResult.STRING_ERROR, BaseMessages.getString(
-              PKG, "ExecuteTransServlet.Error.MissingMandatoryParameter", repOption == null ? REP : TRANS ) ) );
+              PKG, "ExecuteTransServlet.Error.MissingMandatoryParameter", TRANS ) ) );
       return;
     }
 
@@ -328,10 +328,7 @@ public class ExecuteTransServlet extends BaseHttpServlet implements CartePluginI
         if ( trans.isFinishedOrStopped() && trans.getErrors() > 0 ) {
           response.setStatus( HttpServletResponse.SC_INTERNAL_SERVER_ERROR );
           out.println( new WebResult( WebResult.STRING_ERROR, BaseMessages.getString(
-                  PKG, "ExecuteTransServlet.Error.ErrorExecutingTrans", logging ) ) );
-        } else {
-          out.println( new WebResult( WebResult.STRING_OK, BaseMessages.getString(
-                  PKG, "ExecuteTransServlet.Log.ExecuteTransFinished", logging ) ) );
+            PKG, "ExecuteTransServlet.Error.ErrorExecutingTrans", logging ) ) );
         }
         out.flush();
       } catch ( Exception executionException ) {

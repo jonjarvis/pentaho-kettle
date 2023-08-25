@@ -2,7 +2,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2019 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2019-2023 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -23,13 +23,21 @@
 package org.pentaho.di.plugins.fileopensave.providers.recents;
 
 import org.pentaho.di.core.LastUsedFile;
+import org.pentaho.di.core.exception.KettleException;
+import org.pentaho.di.core.variables.VariableSpace;
+import org.pentaho.di.plugins.fileopensave.api.overwrite.OverwriteStatus;
 import org.pentaho.di.plugins.fileopensave.api.providers.BaseFileProvider;
 import org.pentaho.di.plugins.fileopensave.api.providers.File;
 import org.pentaho.di.plugins.fileopensave.api.providers.Tree;
 import org.pentaho.di.plugins.fileopensave.api.providers.exception.FileException;
 import org.pentaho.di.plugins.fileopensave.providers.recents.model.RecentFile;
 import org.pentaho.di.plugins.fileopensave.providers.recents.model.RecentTree;
+import org.pentaho.di.plugins.fileopensave.providers.repository.model.RepositoryFile;
+import org.pentaho.di.plugins.fileopensave.providers.repository.model.RepositoryTree;
+import org.pentaho.di.repository.IUser;
+import org.pentaho.di.repository.ObjectId;
 import org.pentaho.di.ui.core.PropsUI;
+import org.pentaho.di.ui.spoon.Spoon;
 
 import java.io.InputStream;
 import java.util.Calendar;
@@ -63,41 +71,54 @@ public class RecentFileProvider extends BaseFileProvider<RecentFile> {
   }
 
   @Override public Tree getTree() {
-    RecentTree recentTree = new RecentTree( NAME );
+    Tree recentTree;
 
     PropsUI propsUI = getPropsUI();
     Date dateThreshold = getDateThreshold();
-    List<LastUsedFile> lastUsedFiles = propsUI.getLastUsedFiles().stream().filter(
-      lastUsedFile -> !lastUsedFile.getLastOpened().before( dateThreshold ) ).collect( Collectors.toList() );
-
-    for ( LastUsedFile lastUsedFile : lastUsedFiles ) {
-      recentTree.addChild( RecentFile.create( lastUsedFile ) );
+    List<LastUsedFile> lastUsedFiles;
+    final Spoon spoonInstance = Spoon.getInstance();
+    if ( spoonInstance.rep == null ) {
+      lastUsedFiles = propsUI.getLastUsedFiles().stream()
+        .filter(
+          lastUsedFile -> !lastUsedFile.isSourceRepository() && !lastUsedFile.getLastOpened().before( dateThreshold ) )
+        .collect( Collectors.toList() );
+      recentTree = new RecentTree( NAME );
+      for ( LastUsedFile lastUsedFile : lastUsedFiles ) {
+        recentTree.addChild( RecentFile.create( lastUsedFile ) );
+      }
+    } else {
+      IUser userInfo = spoonInstance.rep.getUserInfo();
+      String repoAndUser = spoonInstance.rep.getName() + ":" + ( userInfo != null ? userInfo.getLogin() : "" );
+      lastUsedFiles = propsUI.getLastUsedRepoFiles().getOrDefault( repoAndUser, Collections.emptyList() ).stream()
+        .filter( lastUsedFile -> !lastUsedFile.getLastOpened().before( dateThreshold ) ).collect( Collectors.toList() );
+      recentTree = new RepositoryTree( NAME );
+      getLastUsedFile( lastUsedFiles, spoonInstance, recentTree );
     }
 
     return recentTree;
   }
 
-  @Override public List<RecentFile> getFiles( RecentFile file, String filters ) throws FileException {
+  @Override public List<RecentFile> getFiles( RecentFile file, String filters, VariableSpace space ) throws FileException {
     return Collections.emptyList();
   }
 
-  @Override public List<RecentFile> delete( List<RecentFile> files ) throws FileException {
+  @Override public List<RecentFile> delete( List<RecentFile> files, VariableSpace space ) throws FileException {
     return Collections.emptyList();
   }
 
-  @Override public RecentFile add( RecentFile folder ) throws FileException {
+  @Override public RecentFile add( RecentFile folder, VariableSpace space ) throws FileException {
     return null;
   }
 
-  @Override public RecentFile getFile( RecentFile file ) {
+  @Override public RecentFile getFile( RecentFile file, VariableSpace space ) {
     return null;
   }
 
-  @Override public boolean fileExists( RecentFile dir, String path ) throws FileException {
+  @Override public boolean fileExists( RecentFile dir, String path, VariableSpace space ) throws FileException {
     return false;
   }
 
-  @Override public String getNewName( RecentFile destDir, String newPath ) throws FileException {
+  @Override public String getNewName( RecentFile destDir, String newPath, VariableSpace space ) throws FileException {
     return null;
   }
 
@@ -105,23 +126,24 @@ public class RecentFileProvider extends BaseFileProvider<RecentFile> {
     return false;
   }
 
-  @Override public RecentFile rename( RecentFile file, String newPath, boolean overwrite ) throws FileException {
+  @Override public RecentFile rename( RecentFile file, String newPath, OverwriteStatus overwriteStatus, VariableSpace space ) throws FileException {
     return null;
   }
 
-  @Override public RecentFile copy( RecentFile file, String toPath, boolean overwrite ) throws FileException {
+  @Override public RecentFile copy( RecentFile file, String toPath, OverwriteStatus overwriteStatus, VariableSpace space ) throws FileException {
     return null;
   }
 
-  @Override public RecentFile move( RecentFile file, String toPath, boolean overwrite ) throws FileException {
+  @Override public RecentFile move( RecentFile file, String toPath, OverwriteStatus overwriteStatus, VariableSpace space ) throws FileException {
     return null;
   }
 
-  @Override public InputStream readFile( RecentFile file ) throws FileException {
+  @Override public InputStream readFile( RecentFile file, VariableSpace space ) throws FileException {
     return null;
   }
 
-  @Override public RecentFile writeFile( InputStream inputStream, RecentFile destDir, String path, boolean overwrite )
+  @Override public RecentFile writeFile( InputStream inputStream, RecentFile destDir, String path,
+                                         OverwriteStatus overwriteStatus, VariableSpace space )
     throws FileException {
     return null;
   }
@@ -134,6 +156,10 @@ public class RecentFileProvider extends BaseFileProvider<RecentFile> {
     // Not cached
   }
 
+  @Override public RecentFile createDirectory( String parentPath, RecentFile file, String newDirectoryName ) {
+    return null;
+  }
+
   private PropsUI getPropsUI() {
     return propsUISupplier.get();
   }
@@ -142,5 +168,25 @@ public class RecentFileProvider extends BaseFileProvider<RecentFile> {
     Calendar calendar = Calendar.getInstance();
     calendar.add( Calendar.DATE, -30 );
     return calendar.getTime();
+  }
+
+  private void getLastUsedFile( List<LastUsedFile> lastUsedFiles, Spoon spoonInstance, Tree recentTree ) {
+    for ( LastUsedFile lastUsedFile : lastUsedFiles ) {
+      ObjectId objectID;
+      try {
+        if ( lastUsedFile.isTransformation() ) {
+          objectID = spoonInstance.rep.getTransformationID( lastUsedFile.getFilename(),
+            spoonInstance.rep.findDirectory( lastUsedFile.getDirectory() ) );
+        } else {
+          objectID = spoonInstance.rep.getJobId( lastUsedFile.getFilename(),
+            spoonInstance.rep.findDirectory( lastUsedFile.getDirectory() ) );
+        }
+      } catch ( KettleException e ) {
+        objectID = null;
+      }
+      if ( objectID != null ) {
+        recentTree.addChild( RepositoryFile.create( lastUsedFile, objectID ) );
+      }
+    }
   }
 }

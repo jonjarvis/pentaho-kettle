@@ -2,7 +2,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2002-2020 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2002-2022 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -925,17 +925,36 @@ public class ValueDataUtil {
       return null;
     }
 
+    Double num;
+
     switch ( metaA.getType() ) {
       case ValueMetaInterface.TYPE_NUMBER:
-        return new Double( Math.sqrt( metaA.getNumber( dataA ).doubleValue() ) );
+        num = metaA.getNumber( dataA );
+        if ( num >= 0 ) {
+          return new Double( Math.sqrt( num.doubleValue() ) );
+        }
+        throw new KettleValueException( valueNotNegative( num ) );
       case ValueMetaInterface.TYPE_INTEGER:
-        return new Long( Math.round( Math.sqrt( metaA.getNumber( dataA ).doubleValue() ) ) );
+        num = metaA.getNumber( dataA );
+        if ( num >= 0 ) {
+          return new Long( Math.round( Math.sqrt( num.doubleValue() ) ) );
+        }
+        throw new KettleValueException( valueNotNegative( num ) );
       case ValueMetaInterface.TYPE_BIGNUMBER:
-        return BigDecimal.valueOf( Math.sqrt( metaA.getNumber( dataA ).doubleValue() ) );
+        num = metaA.getNumber( dataA );
+        if ( num >= 0 ) {
+          return BigDecimal.valueOf( Math.sqrt( num.doubleValue() ) );
+        }
+        throw new KettleValueException( valueNotNegative( num ) );
 
       default:
         throw new KettleValueException( "The 'sqrt' function only works on numeric data." );
     }
+  }
+
+  private static String valueNotNegative( final Double num ) {
+    return "The value: [" + num + "] is a negative number. "
+      + "The 'sqrt' function only works with non-negative numbers.";
   }
 
   /**
@@ -1153,7 +1172,7 @@ public class ValueDataUtil {
       case ValueMetaInterface.TYPE_INTEGER:
         return new Long( Math.round( Math.sqrt( metaA.getInteger( dataA ).longValue()
           * metaA.getInteger( dataA ).longValue() + metaB.getInteger( dataB ).longValue()
-          / metaB.getInteger( dataB ).longValue() ) ) );
+          * metaB.getInteger( dataB ).longValue() ) ) );
 
       case ValueMetaInterface.TYPE_BIGNUMBER:
         return BigDecimal.valueOf( Math.sqrt( metaA.getNumber( dataA ).doubleValue()
@@ -1209,14 +1228,24 @@ public class ValueDataUtil {
     if ( dataA == null ) {
       return null;
     }
+    boolean isUnnecessary = roundingMode == BigDecimal.ROUND_UNNECESSARY;
 
     switch ( metaA.getType() ) {
     // Use overloaded Const.round(value, precision, mode)
       case ValueMetaInterface.TYPE_NUMBER:
+        if ( isUnnecessary ) {
+          return metaA.getNumber( dataA );
+        }
         return new Double( Const.round( metaA.getNumber( dataA ), 0, roundingMode ) );
       case ValueMetaInterface.TYPE_INTEGER:
+        if ( isUnnecessary ) {
+          return metaA.getInteger( dataA );
+        }
         return new Long( Const.round( metaA.getInteger( dataA ), 0, roundingMode ) );
       case ValueMetaInterface.TYPE_BIGNUMBER:
+        if ( isUnnecessary ) {
+          return metaA.getBigNumber( dataA );
+        }
         return Const.round( metaA.getBigNumber( dataA ), 0, roundingMode );
       default:
         throw new KettleValueException( "The 'round' function only works on numeric data" );

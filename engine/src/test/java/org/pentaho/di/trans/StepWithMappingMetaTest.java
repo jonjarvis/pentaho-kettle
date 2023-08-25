@@ -2,7 +2,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2002-2019 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2002-2021 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -29,6 +29,7 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
+import org.pentaho.di.base.MetaFileLoaderImpl;
 import org.pentaho.di.core.Const;
 import org.pentaho.di.core.KettleEnvironment;
 import org.pentaho.di.core.ObjectLocationSpecificationMethod;
@@ -41,6 +42,7 @@ import org.pentaho.di.trans.step.StepDataInterface;
 import org.pentaho.di.trans.step.StepInterface;
 import org.pentaho.di.trans.step.StepMeta;
 import org.powermock.api.mockito.PowerMockito;
+import org.powermock.core.classloader.annotations.PowerMockIgnore;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 
@@ -62,6 +64,7 @@ import static org.mockito.Mockito.when;
  * Created by Yury_Bakhmutski on 2/8/2017.
  */
 @RunWith( PowerMockRunner.class )
+@PowerMockIgnore( "jdk.internal.reflect.*" )
 public class StepWithMappingMetaTest {
 
   @Mock
@@ -77,6 +80,7 @@ public class StepWithMappingMetaTest {
   }
 
   @Test
+  @PrepareForTest( { StepWithMappingMeta.class, MetaFileLoaderImpl.class } )
   public void loadMappingMeta() throws Exception {
     String variablePath = "Internal.Entry.Current.Directory";
     String virtualDir = "/testFolder/CDA-91";

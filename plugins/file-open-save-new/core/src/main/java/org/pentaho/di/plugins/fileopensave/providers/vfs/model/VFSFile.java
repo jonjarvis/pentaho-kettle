@@ -2,7 +2,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2019 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2019-2023 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -22,11 +22,13 @@
 
 package org.pentaho.di.plugins.fileopensave.providers.vfs.model;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.vfs2.FileObject;
 import org.apache.commons.vfs2.FileSystemException;
 import org.pentaho.di.connections.vfs.provider.ConnectionFileProvider;
 import org.pentaho.di.core.util.Utils;
 import org.pentaho.di.plugins.fileopensave.api.providers.BaseEntity;
+import org.pentaho.di.plugins.fileopensave.api.providers.EntityType;
 import org.pentaho.di.plugins.fileopensave.api.providers.File;
 import org.pentaho.di.plugins.fileopensave.providers.vfs.VFSFileProvider;
 
@@ -46,9 +48,6 @@ public class VFSFile extends BaseEntity implements File {
   private String connection;
   private String domain;
 
-  @Override public String getType() {
-    return TYPE;
-  }
 
   @Override public String getProvider() {
     return VFSFileProvider.TYPE;
@@ -88,8 +87,22 @@ public class VFSFile extends BaseEntity implements File {
 
   public static VFSFile create( String parent, FileObject fileObject, String connection, String domain ) {
     VFSFile vfsFile = new VFSFile();
-    vfsFile.setName( fileObject.getName().getBaseName() );
-    vfsFile.setPath( fileObject.getName().getURI() );
+    String filename = null;
+    if ( fileObject != null && fileObject.getName() != null ) {
+      filename = fileObject.getName().getBaseName();
+    }
+
+    if ( !Utils.isEmpty( filename ) ) {
+      if ( filename.endsWith( KTR ) ) {
+        vfsFile.setType( TRANSFORMATION );
+      } else if ( filename.endsWith( KJB ) ) {
+        vfsFile.setType(JOB);
+      }
+    }
+    vfsFile.setName( filename );
+    if ( fileObject != null && fileObject.getName() != null ) {
+      vfsFile.setPath( fileObject.getName().getURI() );
+    }
     vfsFile.setParent( parent );
     if ( connection != null ) {
       vfsFile.setConnection( connection );
@@ -98,8 +111,10 @@ public class VFSFile extends BaseEntity implements File {
     vfsFile.setDomain( domain != null ? domain : "" );
     vfsFile.setCanEdit( true );
     try {
-      vfsFile.setDate( new Date( fileObject.getContent().getLastModifiedTime() ) );
-    } catch ( FileSystemException ignored ) {
+      if ( fileObject != null && fileObject.getContent() != null ) {
+        vfsFile.setDate( new Date( fileObject.getContent().getLastModifiedTime() ) );
+      }
+    } catch ( Exception ignored ) {
       vfsFile.setDate( new Date() );
     }
     return vfsFile;
@@ -129,9 +144,14 @@ public class VFSFile extends BaseEntity implements File {
     }
 
     VFSFile compare = (VFSFile) obj;
+
+    // This comparison depends on `getProvider()` to always return a hardcoded value
     return compare.getProvider().equals( getProvider() )
-      && ( ( compare.getConnection() == null && getConnection() == null ) || compare.getConnection()
-      .equals( getConnection() ) )
-      && ( ( compare.getPath() == null && getPath() == null ) || compare.getPath().equals( getPath() ) );
+      && StringUtils.equals( compare.getConnection(), getConnection() )
+      && StringUtils.equals( compare.getPath(), getPath() );
+  }
+
+  public EntityType getEntityType(){
+    return EntityType.VFS_FILE;
   }
 }

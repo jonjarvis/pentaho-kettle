@@ -3,7 +3,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2002-2020 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2002-2023 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -44,6 +44,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.vfs2.FileName;
 import org.apache.commons.vfs2.FileObject;
+import org.pentaho.di.base.IMetaFileCache;
 import org.pentaho.di.cluster.SlaveServer;
 import org.pentaho.di.core.Const;
 import org.pentaho.di.core.util.ConnectionUtil;
@@ -94,6 +95,7 @@ import org.pentaho.di.job.entries.special.JobEntrySpecial;
 import org.pentaho.di.job.entries.trans.JobEntryTrans;
 import org.pentaho.di.job.entry.JobEntryCopy;
 import org.pentaho.di.job.entry.JobEntryInterface;
+import org.pentaho.di.metastore.MetaStoreConst;
 import org.pentaho.di.repository.ObjectId;
 import org.pentaho.di.repository.ObjectRevision;
 import org.pentaho.di.repository.Repository;
@@ -127,7 +129,10 @@ public class Job extends Thread implements VariableSpace, NamedParams, HasLogCha
 
   private LogChannelInterface log;
 
+  private boolean loggingObjectInUse;
   private LogLevel logLevel = DefaultLogLevel.getLogLevel();
+
+  private int logBufferStartLine;
 
   private String containerObjectId;
 
@@ -243,9 +248,20 @@ public class Job extends Thread implements VariableSpace, NamedParams, HasLogCha
 
     init();
     this.log = new LogChannel( this );
+    this.log.setHooks( this );
+  }
+
+  @Override
+  public boolean isLoggingObjectInUse() {
+    return loggingObjectInUse;
+  }
+
+  public void setLoggingObjectInUse( boolean inUse ) {
+    loggingObjectInUse = inUse;
   }
 
   public void init() {
+    setLoggingObjectInUse( true );
     status = new AtomicInteger();
 
     jobListeners = new ArrayList<JobListener>();
@@ -302,6 +318,7 @@ public class Job extends Thread implements VariableSpace, NamedParams, HasLogCha
 
     this.log = new LogChannel( this, parentLogging );
     this.logLevel = log.getLogLevel();
+    this.log.setHooks( this );
 
     if ( this.containerObjectId == null ) {
       this.containerObjectId = log.getContainerObjectId();
@@ -312,6 +329,7 @@ public class Job extends Thread implements VariableSpace, NamedParams, HasLogCha
     init();
     this.log = new LogChannel( this );
     this.logLevel = log.getLogLevel();
+    this.log.setHooks( this );
   }
 
   /**
@@ -377,9 +395,12 @@ public class Job extends Thread implements VariableSpace, NamedParams, HasLogCha
       activateParameters();
       ConnectionUtil.init( jobMeta );
 
+      IMetaFileCache.setCacheInstance( jobMeta, IMetaFileCache.initialize( parentJob, log ) );
+
       // Run the job
       //
       fireJobStartListeners();
+
 
       heartbeat = startHeartbeat( getHeartbeatIntervalInSeconds() );
 
@@ -404,6 +425,12 @@ public class Job extends Thread implements VariableSpace, NamedParams, HasLogCha
     } finally {
       try {
         shutdownHeartbeat( heartbeat );
+        if ( jobMeta.getParent() == null ) {
+          if ( log.isDetailed() && jobMeta.getMetaFileCache() != null ) {
+            jobMeta.getMetaFileCache().logCacheSummary( log );
+          }
+          jobMeta.setMetaFileCache( null );
+        }
 
         ExtensionPointHandler.callExtensionPoint( log, KettleExtensionPoint.JobFinish.id, this );
         jobMeta.disposeEmbeddedMetastoreProvider();
@@ -443,6 +470,8 @@ public class Job extends Thread implements VariableSpace, NamedParams, HasLogCha
    */
   private Result execute() throws KettleException {
     try {
+      setInitialLogBufferStartLine();
+
       log.snap( Metrics.METRIC_JOB_START );
 
       setFinished( false );
@@ -584,6 +613,7 @@ public class Job extends Thread implements VariableSpace, NamedParams, HasLogCha
    * @see JobListener#jobFinished(Job)
    */
   public void fireJobFinishListeners() throws KettleException {
+    setLoggingObjectInUse( false );
     synchronized ( jobListeners ) {
       for ( JobListener jobListener : jobListeners ) {
         jobListener.jobFinished( this );
@@ -667,9 +697,7 @@ public class Job extends Thread implements VariableSpace, NamedParams, HasLogCha
       JobEntryInterface cloneJei = (JobEntryInterface) jobEntryInterface.clone();
       ( (VariableSpace) cloneJei ).copyVariablesFrom( this );
       cloneJei.setRepository( rep );
-      if ( rep != null ) {
-        cloneJei.setMetaStore( rep.getMetaStore() );
-      }
+      cloneJei.setMetaStore( MetaStoreConst.getDefaultMetastore() );
       cloneJei.setParentJob( this );
       cloneJei.setParentJobMeta( this.getJobMeta() );
       final long start = System.currentTimeMillis();
@@ -2021,6 +2049,32 @@ public class Job extends Thread implements VariableSpace, NamedParams, HasLogCha
   }
 
   /**
+   * Gets the logBufferStartLine.
+   *
+   * @return logBufferStartLine
+   */
+  public int getLogBufferStartLine() {
+    return logBufferStartLine;
+  }
+
+  /**
+   * Sets the logBufferStartLine.
+   *
+   * @param lineNr
+   *          the log buffer starting line for this job
+   */
+  public void setLogBufferStartLine( int lineNr ) {
+    logBufferStartLine = lineNr;
+  }
+
+  /**
+   * Sets logBufferStartLine based on LoggingBuffer last line number
+   */
+  public void setInitialLogBufferStartLine() {
+    logBufferStartLine = KettleLogStore.getAppender().getLastBufferLineNr();
+  }
+
+  /**
    * Gets the logging hierarchy.
    *
    * @return the logging hierarchy
@@ -2337,5 +2391,18 @@ public class Job extends Thread implements VariableSpace, NamedParams, HasLogCha
     }
 
     return Const.HEARTBEAT_PERIODIC_INTERVAL_IN_SECS;
+  }
+
+  @Override public void callBeforeLog() {
+    if ( parentLoggingObject != null ) {
+      parentLoggingObject.callBeforeLog();
+    }
+  }
+
+  @Override public void callAfterLog() {
+    if ( parentLoggingObject != null ) {
+      parentLoggingObject.callAfterLog();
+    }
+    this.logDate = new Date();
   }
 }

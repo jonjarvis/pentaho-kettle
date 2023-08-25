@@ -72,9 +72,11 @@ if exist java.exe goto USEJAVAFROMPATH
 goto USEJAVAFROMPATH
 :USEJAVAFROMPENTAHOJAVAHOME
 FOR /F %%a IN ('.\java.exe -version 2^>^&1^|%windir%\system32\find /C "64-Bit"') DO (SET /a IS64BITJAVA=%%a)
+FOR /F %%a IN ('.\java.exe -version 2^>^&1^|%windir%\system32\find /C "version ""1.8."') DO (SET /a ISJAVA8=%%a)
 GOTO CHECK32VS64BITJAVA
 :USEJAVAFROMPATH
 FOR /F %%a IN ('java -version 2^>^&1^|%windir%\system32\find /C "64-Bit"') DO (SET /a IS64BITJAVA=%%a)
+FOR /F %%a IN ('java -version 2^>^&1^|%windir%\system32\find /C "version ""1.8."') DO (SET /a ISJAVA8=%%a)
 GOTO CHECK32VS64BITJAVA
 :CHECK32VS64BITJAVA
 
@@ -91,6 +93,29 @@ GOTO :CONTINUE
 REM ===========================================
 REM Using 64bit java, so include 64bit SWT Jar
 REM ===========================================
+
+REM ===========================================
+REM Check if running Windows 11
+REM ===========================================
+
+REM Check if the major version of Windows is 10.0 (Windows 10 or Windows 11). If it is save the build number
+for /f "tokens=4-7 delims=[.] " %%i in ('ver') do @(if %%i=="10.0" (set WINDOWS_BUILD_VERSION= ) else (set WINDOWS_BUILD_VERSION=%%k))
+
+REM Convert WINDOWS_BUILD_VERSION to a number
+set /A WINDOWS_BUILD_NUMBER=%WINDOWS_BUILD_VERSION%
+
+set ISWINDOWS11ANDJAVA8=""
+REM First build number of Windows 11 is 20000, if the number is less than that it's not Windows 11
+if %WINDOWS_BUILD_NUMBER% LSS 20000 GOTO :ISNOTWINDOWS11ANDJAVA8
+if %ISJAVA8% NEQ 1 GOTO :ISNOTWINDOWS11ANDJAVA8
+SET ISWINDOWS11ANDJAVA8=true
+
+:ISNOTWINDOWS11ANDJAVA8
+if %ISJAVA8% NEQ 1 GOTO :SETJAVASWT
+set LIBSPATH=libswt\win64_java8
+set SWTJAR=..\libswt\win64_java8
+GOTO :CONTINUE
+:SETJAVASWT
 set LIBSPATH=libswt\win64
 set SWTJAR=..\libswt\win64
 :CONTINUE
@@ -99,11 +124,21 @@ popd
 REM **************************************************
 REM ** Setup Karaf endorsed libraries directory     **
 REM **************************************************
-
 set JAVA_ENDORSED_DIRS=
-if not "%_PENTAHO_JAVA_HOME%" == "" set JAVA_ENDORSED_DIRS=%_PENTAHO_JAVA_HOME%\jre\lib\endorsed;%_PENTAHO_JAVA_HOME%\lib\endorsed;
-set JAVA_ENDORSED_DIRS=%JAVA_ENDORSED_DIRS%%KETTLE_DIR%\system\karaf\lib\endorsed
+set JAVA_LOCALE_COMPAT=
+set JAVA_ADD_OPENS=
+IF NOT %ISJAVA8% == 1 GOTO :SKIPENDORSEDJARS
 
+if not "%_PENTAHO_JAVA_HOME%" == "" set JAVA_ENDORSED_DIRS=%_PENTAHO_JAVA_HOME%\jre\lib\endorsed;%_PENTAHO_JAVA_HOME%\lib\endorsed;
+set JAVA_ENDORSED_DIRS="-Djava.endorsed.dirs=%JAVA_ENDORSED_DIRS%%KETTLE_DIR%\system\karaf\lib\endorsed"
+GOTO :COLLECTARGUMENTS
+
+:SKIPENDORSEDJARS
+REM required for Java 11 date/time formatting backwards compatibility
+set JAVA_LOCALE_COMPAT=-Djava.locale.providers=COMPAT,SPI
+set JAVA_ADD_OPENS=--add-opens java.base/java.net=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/sun.net.www.protocol.jar=ALL-UNNAMED
+
+:COLLECTARGUMENTS
 REM **********************
 REM   Collect arguments
 REM **********************
@@ -124,17 +159,25 @@ REM ******************************************************************
 
 if "%PENTAHO_DI_JAVA_OPTIONS%"=="" set PENTAHO_DI_JAVA_OPTIONS="-Xms1024m" "-Xmx2048m"
 
-set OPT=%OPT% %PENTAHO_DI_JAVA_OPTIONS% "-Dhttps.protocols=TLSv1,TLSv1.1,TLSv1.2" "-Djava.library.path=%LIBSPATH%;%HADOOP_HOME%/bin" "-Djava.endorsed.dirs=%JAVA_ENDORSED_DIRS%" "-DKETTLE_HOME=%KETTLE_HOME%" "-DKETTLE_REPOSITORY=%KETTLE_REPOSITORY%" "-DKETTLE_USER=%KETTLE_USER%" "-DKETTLE_PASSWORD=%KETTLE_PASSWORD%" "-DKETTLE_PLUGIN_PACKAGES=%KETTLE_PLUGIN_PACKAGES%" "-DKETTLE_LOG_SIZE_LIMIT=%KETTLE_LOG_SIZE_LIMIT%" "-DKETTLE_JNDI_ROOT=%KETTLE_JNDI_ROOT%"
+set OPT=%OPT% %PENTAHO_DI_JAVA_OPTIONS% "-Djava.library.path=%LIBSPATH%;%HADOOP_HOME%/bin" %JAVA_ENDORSED_DIRS% %JAVA_LOCALE_COMPAT% "-DKETTLE_HOME=%KETTLE_HOME%" "-DKETTLE_REPOSITORY=%KETTLE_REPOSITORY%" "-DKETTLE_USER=%KETTLE_USER%" "-DKETTLE_PASSWORD=%KETTLE_PASSWORD%" "-DKETTLE_PLUGIN_PACKAGES=%KETTLE_PLUGIN_PACKAGES%" "-DKETTLE_LOG_SIZE_LIMIT=%KETTLE_LOG_SIZE_LIMIT%" "-DKETTLE_JNDI_ROOT=%KETTLE_JNDI_ROOT%"
 
 REM ***************
 REM ** Run...    **
 REM ***************
 
+REM If %STARTTITLE% is set, start Spoon even if it is Windows 8 on Windows 11
+if NOT "%STARTTITLE%"=="" GOTO :NORMALSTART
+REM IF %ISWINDOWS11ANDJAVA8% is not set, start normally
+if %ISWINDOWS11ANDJAVA8%=="" GOTO :NORMALSTART
+echo ERROR: Spoon UI requires Java 11 to function on Windows 11
+pause
+GOTO :EOF
+:NORMALSTART
 if %STARTTITLE%!==! SET STARTTITLE="Spoon"
 REM Eventually call java instead of javaw and do not run in a separate window
 if not "%SPOON_CONSOLE%"=="1" set SPOON_START_OPTION=start %STARTTITLE%
 
 @echo on
-%SPOON_START_OPTION% "%_PENTAHO_JAVA%" %OPT% -jar launcher\launcher.jar -lib ..\%LIBSPATH% %_cmdline%
+%SPOON_START_OPTION% "%_PENTAHO_JAVA%" %JAVA_ADD_OPENS% %OPT% -jar launcher\launcher.jar -lib ..\%LIBSPATH% %_cmdline%
 @echo off
 if "%SPOON_PAUSE%"=="1" pause

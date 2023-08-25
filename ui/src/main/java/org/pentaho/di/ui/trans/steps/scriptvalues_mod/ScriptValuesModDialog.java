@@ -3,7 +3,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2002-2017 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2002-2021 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -647,6 +647,9 @@ public class ScriptValuesModDialog extends BaseStepDialog implements StepDialogI
               setInputOutputFields();
             } else {
               // Can not get fields...end of wait message
+              if ( Const.isRunningOnWebspoonMode() && ( iteminput.isDisposed() || itemoutput.isDisposed() ) ) {
+                return;
+              }
               iteminput.removeAll();
               itemoutput.removeAll();
             }
@@ -1682,6 +1685,9 @@ public class ScriptValuesModDialog extends BaseStepDialog implements StepDialogI
     shell.getDisplay().syncExec( new Runnable() {
       public void run() {
         // fields are got...end of wait message
+        if ( Const.isRunningOnWebspoonMode() && ( iteminput.isDisposed() || itemoutput.isDisposed() ) ) {
+          return;
+        }
         iteminput.removeAll();
         itemoutput.removeAll();
 
@@ -2199,17 +2205,14 @@ public class ScriptValuesModDialog extends BaseStepDialog implements StepDialogI
   // This could be useful for further improvements
   public static ScriptNode parseVariables( Context cx, Scriptable scope, String source, String sourceName,
     int lineno, Object securityDomain ) {
-    // Interpreter compiler = new Interpreter();
-    CompilerEnvirons evn = new CompilerEnvirons();
-    // evn.setLanguageVersion(Context.VERSION_1_5);
-    evn.setOptimizationLevel( -1 );
-    evn.setGeneratingSource( true );
-    evn.setGenerateDebugInfo( true );
+    CompilerEnvirons env = new CompilerEnvirons();
+    env.setOptimizationLevel( -1 );
+    env.setGeneratingSource( true );
+    env.setGenerateDebugInfo( true );
     ErrorReporter errorReporter = new ToolErrorReporter( false );
-    Parser p = new Parser( evn, errorReporter );
+    Parser p = new Parser( env, errorReporter );
     ScriptNode tree = p.parse( source, "", 0 ); // IOException
-    new NodeTransformer().transform( tree );
-    // Script result = (Script)compiler.compile(scope, evn, tree, p.getEncodedSource(),false, null);
+    new NodeTransformer().transform( tree, env );
     return tree;
   }
 }

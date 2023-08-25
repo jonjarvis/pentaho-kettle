@@ -2,7 +2,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2002-2020 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2002-2023 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -231,15 +231,18 @@ public class KettleVFS {
    * getFriendlyURI(FileObject) or getFriendlyURI(String) are the public
    * methods.
    */
-  private static String cleanseFilename( String vfsFilename ) {
+  public static String cleanseFilename( String vfsFilename ) {
     return vfsFilename.replaceAll( ":[^:@/]+@", ":<password>@" );
   }
 
-  private static FileSystemOptions buildFsOptions( VariableSpace varSpace, FileSystemOptions sourceOptions,
+  private static FileSystemOptions buildFsOptions( VariableSpace parentVariableSpace, FileSystemOptions sourceOptions,
                                                    String vfsFilename, String scheme ) throws IOException {
-    if ( varSpace == null || vfsFilename == null ) {
-      // We cannot extract settings from a non-existant variable space
+    VariableSpace varSpace = parentVariableSpace;
+    if ( vfsFilename == null ) {
       return null;
+    }
+    if ( varSpace == null ) {
+      varSpace = defaultVariableSpace;
     }
 
     IKettleFileSystemConfigBuilder configBuilder =
@@ -251,7 +254,7 @@ public class KettleVFS {
 
     for ( String var : varList ) {
       if ( var.equalsIgnoreCase( CONNECTION ) && varSpace.getVariable( var ) != null ) {
-        FileSystemOptions fileSystemOptions = VFSHelper.getOpts( vfsFilename, varSpace.getVariable( var ) );
+        FileSystemOptions fileSystemOptions = VFSHelper.getOpts( vfsFilename, varSpace.getVariable( var ), varSpace );
         if ( fileSystemOptions != null ) {
           return fileSystemOptions;
         }
@@ -267,6 +270,9 @@ public class KettleVFS {
           throw new IOException( "FileSystemConfigBuilder could not parse parameter: " + var );
         }
       }
+    }
+    if ( scheme.equals( "pvfs" ) ) {
+      configBuilder.setParameter( fsOptions, "VariableSpace", varSpace, vfsFilename );
     }
     return fsOptions;
   }
@@ -605,4 +611,7 @@ public class KettleVFS {
     }
   }
 
+  private void serializeVariableSpace( VariableSpace space ) {
+    space.listVariables();
+  }
 }

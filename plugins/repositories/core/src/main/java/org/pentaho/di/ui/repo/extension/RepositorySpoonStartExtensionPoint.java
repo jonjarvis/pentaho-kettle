@@ -2,7 +2,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2002-2018 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2002-2022 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -33,7 +33,7 @@ import org.pentaho.di.i18n.BaseMessages;
 import org.pentaho.di.pan.CommandLineOption;
 import org.pentaho.di.repository.RepositoryMeta;
 import org.pentaho.di.ui.repo.controller.RepositoryConnectController;
-import org.pentaho.di.ui.repo.dialog.RepositoryDialog;
+import org.pentaho.di.ui.repo.dialog.RepositoryConnectionDialog;
 import org.pentaho.di.ui.spoon.Spoon;
 
 @ExtensionPoint(
@@ -47,8 +47,8 @@ public class RepositorySpoonStartExtensionPoint implements ExtensionPointInterfa
 
   private RepositoryConnectController repositoryConnectController;
 
-  public RepositorySpoonStartExtensionPoint( RepositoryConnectController repositoryConnectController ) {
-    this.repositoryConnectController = repositoryConnectController;
+  public RepositorySpoonStartExtensionPoint() {
+    this.repositoryConnectController = RepositoryConnectController.getInstance();
   }
 
   public static CommandLineOption getCommandLineOption( CommandLineOption[] options, String opt ) {
@@ -60,6 +60,7 @@ public class RepositorySpoonStartExtensionPoint implements ExtensionPointInterfa
     return null;
   }
 
+  @SuppressWarnings( "squid:S3776" )
   @Override
   public void callExtensionPoint( LogChannelInterface log, Object object ) throws KettleException {
     if ( !( object instanceof CommandLineOption[] ) ) {
@@ -95,7 +96,7 @@ public class RepositorySpoonStartExtensionPoint implements ExtensionPointInterfa
         if ( repositoryMeta.getId().equals( "KettleFileRepository" ) ) {
           repositoryConnectController.connectToRepository( repositoryMeta );
         } else {
-          new RepositoryDialog( getSpoon().getShell(), repositoryConnectController ).openLogin( repositoryMeta );
+          new RepositoryConnectionDialog( getSpoon().getShell() ).createDialog( repositoryMeta.getName() );
         }
       }
     }

@@ -2,7 +2,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2017-2019 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2017-2023 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -22,8 +22,14 @@
 
 package org.pentaho.di.plugins.fileopensave.providers.repository.model;
 
+import org.apache.commons.lang.StringUtils;
+import org.pentaho.di.core.LastUsedFile;
+import org.pentaho.di.plugins.fileopensave.api.providers.EntityType;
 import org.pentaho.di.plugins.fileopensave.api.providers.File;
+import org.pentaho.di.plugins.fileopensave.api.providers.Utils;
+import org.pentaho.di.plugins.fileopensave.providers.recents.RecentFileProvider;
 import org.pentaho.di.plugins.fileopensave.providers.repository.RepositoryFileProvider;
+import org.pentaho.di.repository.ObjectId;
 
 import java.util.Objects;
 
@@ -32,15 +38,27 @@ import java.util.Objects;
  */
 public class RepositoryFile extends RepositoryObject implements File {
 
-  public static final String TRANSFORMATION = "transformation";
-  public static final String JOB = "job";
-  public static final String KTR = ".ktr";
-  public static final String KJB = ".kjb";
+
   public static final String DELIMITER = "/";
   private String username;
 
   public RepositoryFile() {
     // Necessary for JSON marshalling
+  }
+
+  public static RepositoryFile create( LastUsedFile lastUsedFile, final ObjectId objectId ) {
+    RepositoryFile repositoryFile = new RepositoryFile();
+    repositoryFile.setType( lastUsedFile.isTransformation() ? TRANSFORMATION : JOB );
+    repositoryFile.setDate( lastUsedFile.getLastOpened() );
+    repositoryFile.setRoot( RecentFileProvider.NAME );
+    repositoryFile.setName( lastUsedFile.getFilename() );
+    repositoryFile.setParent( lastUsedFile.getDirectory() );
+    repositoryFile.setPath( lastUsedFile.getDirectory() + DELIMITER + lastUsedFile.getFilename() );
+    repositoryFile.setRepository( lastUsedFile.getRepositoryName() );
+    repositoryFile.setUsername( lastUsedFile.getUsername() );
+    repositoryFile.setObjectId( objectId.getId() );
+
+    return repositoryFile;
   }
 
   public String getUsername() {
@@ -123,7 +141,20 @@ public class RepositoryFile extends RepositoryObject implements File {
     }
 
     RepositoryFile compare = (RepositoryFile) obj;
+    // This comparison depends on `getProvider()` to always return a hardcoded value
     return compare.getProvider().equals( getProvider() )
-      && ( ( compare.getPath() == null && getPath() == null ) || compare.getPath().equals( getPath() ) );
+      && StringUtils.equals( compare.getPath(), getPath() );
   }
+
+  // TODO: fix repository files so that the extension is populated consistently in the two build methods
+  // so that we don't need to use this method
+  public boolean passesTypeFilter( String filter ) {
+    return Utils.matches( getName() + ( TRANSFORMATION.equalsIgnoreCase( getType() ) ? KTR : KJB ), filter );
+  }
+
+  @Override
+  public EntityType getEntityType(){
+    return EntityType.REPOSITORY_FILE;
+  }
+
 }

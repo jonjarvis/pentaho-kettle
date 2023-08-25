@@ -2,7 +2,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2002-2019 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2002-2022 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -37,6 +37,7 @@ import org.pentaho.di.core.plugins.PluginInterface;
 import org.pentaho.di.core.plugins.PluginRegistry;
 import org.pentaho.di.core.plugins.PluginTypeInterface;
 import org.pentaho.di.core.row.value.ValueMetaPluginType;
+import org.pentaho.di.core.service.ServiceProviderPluginType;
 import org.pentaho.di.core.util.EnvUtil;
 import org.pentaho.di.i18n.BaseMessages;
 
@@ -62,7 +63,7 @@ public class KettleClientEnvironment {
   private static Boolean initialized;
 
   public enum ClientType {
-    SPOON, PAN, KITCHEN, CARTE, DI_SERVER, SCALE, OTHER;
+    SPOON, PAN, KITCHEN, CARTE, PENTAHO_SERVER, SCALE, OTHER;
     public String getID() {
       if ( this != OTHER ) {
         return this.name();
@@ -81,7 +82,7 @@ public class KettleClientEnvironment {
       ValueMetaPluginType.getInstance(),
       DatabasePluginType.getInstance(),
       ExtensionPointPluginType.getInstance(),
-      TwoWayPasswordEncoderPluginType.getInstance() ) );
+      TwoWayPasswordEncoderPluginType.getInstance(), ServiceProviderPluginType.getInstance() ) );
   }
 
   public static synchronized void init( List<PluginTypeInterface> pluginsToLoad ) throws KettleException {
@@ -146,8 +147,24 @@ public class KettleClientEnvironment {
       //
       createDefaultKettleProperties( directory );
     } catch ( Exception e ) {
-      // ignore - should likely propagate the error
+      System.err.println( e.getMessage() );
+    }
+  }
 
+  /**
+   * Creates the kettle home area, which is a directory containing a default kettle.properties file
+   */
+  public static void createKettleUserHome() {
+
+    // Try to create the directory...
+    //
+    String directory = Const.getKettleDirectory();
+    File dir = new File( directory );
+    try {
+      dir.mkdirs();
+
+    } catch ( Exception e ) {
+      System.err.println( e.getMessage() );
     }
   }
 

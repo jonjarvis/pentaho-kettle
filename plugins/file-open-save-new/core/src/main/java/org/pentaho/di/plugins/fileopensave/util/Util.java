@@ -2,7 +2,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2017-2019 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2017-2023 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -22,6 +22,11 @@
 
 package org.pentaho.di.plugins.fileopensave.util;
 
+import org.pentaho.di.connections.vfs.provider.ConnectionFileProvider;
+import org.pentaho.di.plugins.fileopensave.providers.vfs.model.VFSFile;
+
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.regex.Pattern;
 
 /**
@@ -37,7 +42,47 @@ public class Util {
   }
 
   public static String getName( String path ) {
-    return path.substring( path.lastIndexOf( "/" ) + 1, path.lastIndexOf( "." ) );
+    //Strips off extension if present
+    int slashpos = path.lastIndexOf( "/" );
+    int dotpos = path.lastIndexOf( "." );
+    if ( slashpos < dotpos ) {
+      return path.substring( slashpos + 1, dotpos );
+    } else {
+      return path.substring( slashpos + 1 );
+    }
   }
 
+  public static String getFolder( String path ) {
+    if ( path.endsWith( ":\\\\" ) || path.endsWith( "://" ) ) {
+      return null; //no parent of root
+    }
+    if ( path.lastIndexOf( "/" ) == -1 ) {
+      if ( path.lastIndexOf( "\\" ) == -1 ) {
+        return null; //No parent if no slashes
+      } else {
+        return path.substring( 0, path.lastIndexOf( "\\" ) );
+      }
+    }
+    return path.substring( 0, path.lastIndexOf( "/" ) );
+  }
+
+  public static void rawElementMassage( Object rawElement ) {
+    //Performs conversion of raw elements from drag and drop to something the system understands
+    if ( rawElement instanceof VFSFile ) {
+      VFSFile vfsFile = (VFSFile) rawElement;
+      if ( vfsFile.getPath().startsWith( "hcp://" ) ) {
+        //HCP Files come back like this "hcp://hcp.hitachi.com:443/path1/filename" and for some reason this does not
+        // work with HCP.  We work around this by converting the URL to pvfs like this
+        // ( ie: pvfs://myconnectionName/path1/filename ).  The displayed name is what we want.
+        try {
+          URI uri = new URI( vfsFile.getPath() );
+          vfsFile.setPath( ConnectionFileProvider.SCHEME + "://" + vfsFile.getConnection() + uri.getPath() );
+          vfsFile.setParent( Util.getFolder( vfsFile.getPath() ) );
+        } catch ( URISyntaxException e ) {
+          // Since we are just trying to mutate a properly formed hcp: uri to a pvfs: one, if the URI parsing fails
+          // we can only let it go through as is, like all the rest of providers do it.
+        }
+      }
+    }
+  }
 }

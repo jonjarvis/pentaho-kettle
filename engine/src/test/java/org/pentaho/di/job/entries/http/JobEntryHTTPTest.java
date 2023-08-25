@@ -2,7 +2,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2002-2020 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2002-2023 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -114,7 +114,7 @@ public class JobEntryHTTPTest {
   public void testDateTimeAddedFieldIsSetInTrue_WhenRepoReturnsTrue() throws KettleException {
     when( ktlDbRepMock.getJobEntryAttributeBoolean( objIdMock, "date_time_added" ) ).thenReturn( true );
 
-    jobEntryHttp.loadRep( ktlDbRepMock, ktlDbRepMock.getMetaStore(), objIdMock, null, null );
+    jobEntryHttp.loadRep( ktlDbRepMock, ktlDbRepMock.getRepositoryMetaStore(), objIdMock, null, null );
     verify( ktlDbRepMock, never() ).getJobEntryAttributeString( objIdMock, "date_time_added" );
     verify( ktlDbRepMock ).getJobEntryAttributeBoolean( objIdMock, "date_time_added" );
     assertTrue( "DateTimeAdded field should be TRUE.", jobEntryHttp.isDateTimeAdded() );
@@ -147,6 +147,7 @@ public class JobEntryHTTPTest {
     assertEquals( 0L, result.getNrErrors() );
     assertEquals( HttpStatus.SC_OK, basicHttpJobEntry.getResponseStatusCode() );
     assertTrue( FileUtils.sizeOf( tempTargetFile ) > 0 );
+    tempTargetFile.delete();
 
     // Test invalid URL
     result = new Result();
@@ -155,6 +156,7 @@ public class JobEntryHTTPTest {
     assertEquals( 1L, result.getNrErrors() );
     assertEquals( 0, basicHttpJobEntry.getResponseStatusCode() );
     assertTrue( FileUtils.sizeOf( tempTargetFile ) == 0 );
+    tempTargetFile.delete();
   }
 
   @Test

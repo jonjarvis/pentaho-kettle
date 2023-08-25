@@ -6,7 +6,7 @@
 
   <groupId>pentaho-kettle</groupId>
   <artifactId>kettle-engine</artifactId>
-  <version>9.2.0.0-SNAPSHOT</version>
+  <version>9.6.0.0-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <name>PDI Engine</name>
@@ -14,7 +14,7 @@
   <parent>
     <groupId>org.pentaho.di</groupId>
     <artifactId>pdi</artifactId>
-    <version>9.2.0.0-SNAPSHOT</version>
+    <version>9.6.0.0-SNAPSHOT</version>
   </parent>
 
   <properties>
@@ -24,10 +24,10 @@
     <maven-failsafe-plugin.reuseForks>false</maven-failsafe-plugin.reuseForks>
 
     <!-- Pentaho dependencies -->
-    <pentaho-reporting.version>9.2.0.0-SNAPSHOT</pentaho-reporting.version>
-    <pentaho-registry.version>9.2.0.0-SNAPSHOT</pentaho-registry.version>
-    <pentaho-connections.version>9.2.0.0-SNAPSHOT</pentaho-connections.version>
-    <mondrian.version>9.2.0.0-SNAPSHOT</mondrian.version>
+    <pentaho-reporting.version>9.6.0.0-SNAPSHOT</pentaho-reporting.version>
+    <pentaho-registry.version>9.6.0.0-SNAPSHOT</pentaho-registry.version>
+    <pentaho-connections.version>9.6.0.0-SNAPSHOT</pentaho-connections.version>
+    <mondrian.version>9.6.0.0-SNAPSHOT</mondrian.version>
 
     <!-- Third-party dependencies -->
     <antlr-complete.version>3.5.2</antlr-complete.version>
@@ -36,9 +36,7 @@
     <jsendnsca.version>2.0.1</jsendnsca.version>
     <feed4j.version>1.0</feed4j.version>
     <ftp4che.version>0.7.1</ftp4che.version>
-    <georss-rome.version>0.9.8</georss-rome.version>
     <infobright-core.version>3.4</infobright-core.version>
-    <ini4j.version>0.5.1</ini4j.version>
     <!-- https://jira.pentaho.com/browse/PDI-44134 update janino to latest -->
     <janino.version>3.0.8</janino.version>
     <javadbf.version>20081125</javadbf.version>
@@ -53,17 +51,13 @@
     <ldapjdk.version>20000524</ldapjdk.version>
     <monetdb-jdbc.version>2.8</monetdb-jdbc.version>
     <odfdom-java.version>0.8.6</odfdom-java.version>
-    <poi.version>4.1.1</poi.version>
     <commons-collections4.version>4.4</commons-collections4.version>
     <commons-math3.version>3.6.1</commons-math3.version>
     <xmlbeans.version>3.1.0</xmlbeans.version>
     <curvesapi.version>1.06</curvesapi.version>
-    <commons-compress.version>1.19</commons-compress.version>
-    <rome.version>1.0</rome.version>
     <SassyReader.version>0.5</SassyReader.version>
     <saxon.version>9.1.0.8</saxon.version>
     <saxon-dom.version>9.1.0.8</saxon-dom.version>
-    <snakeyaml.version>1.7</snakeyaml.version>
     <snmp4j.version>1.9.3d</snmp4j.version>
     <syslog4j.version>0.9.46</syslog4j.version>
     <trilead-ssh2.version>build213</trilead-ssh2.version>
@@ -78,7 +72,6 @@
     <hibernate-commons-annotations.version>3.2.0.Final</hibernate-commons-annotations.version>
     <hibernate-ehcache.version>3.6.9.Final</hibernate-ehcache.version>
     <cglib-nodep.version>2.2</cglib-nodep.version>
-    <nekohtml.version>1.9.15</nekohtml.version>
     <js.version>1.7R3</js.version>
     <mail.version>1.6.1</mail.version>
     <mstor.version>0.9.13</mstor.version>
@@ -147,12 +140,7 @@
     <!-- Reporting dependencies -->
     <dependency>
       <groupId>org.pentaho.reporting.library</groupId>
-      <artifactId>libfonts</artifactId>
-      <version>${pentaho-reporting.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.pentaho.reporting.engine</groupId>
-      <artifactId>classic-core</artifactId>
+      <artifactId>libformula</artifactId>
       <version>${pentaho-reporting.version}</version>
     </dependency>
 
@@ -177,14 +165,15 @@
     <dependency>
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
+      <version>${guava.version}</version>
     </dependency>
     <dependency>
       <groupId>org.owasp.encoder</groupId>
       <artifactId>encoder</artifactId>
     </dependency>
     <dependency>
-      <groupId>rhino</groupId>
-      <artifactId>js</artifactId>
+      <groupId>org.mozilla</groupId>
+      <artifactId>rhino</artifactId>
     </dependency>
     <dependency>
       <groupId>org.antlr</groupId>
@@ -253,15 +242,13 @@
       </exclusions>
     </dependency>
     <dependency>
-      <groupId>georss-rome</groupId>
-      <artifactId>georss-rome</artifactId>
-      <version>${georss-rome.version}</version>
-      <exclusions>
-        <exclusion>
-          <groupId>*</groupId>
-          <artifactId>*</artifactId>
-        </exclusion>
-      </exclusions>
+      <groupId>com.rometools</groupId>
+      <artifactId>rome-modules</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.rometools</groupId>
+      <artifactId>rome-utils</artifactId>
+      <version>${rome.version}</version>
     </dependency>
     <dependency>
       <groupId>infobright</groupId>
@@ -440,39 +427,6 @@
       </exclusions>
     </dependency>
     <dependency>
-      <groupId>org.apache.poi</groupId>
-      <artifactId>poi</artifactId>
-      <version>${poi.version}</version>
-      <exclusions>
-        <exclusion>
-          <groupId>*</groupId>
-          <artifactId>*</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.poi</groupId>
-      <artifactId>poi-ooxml</artifactId>
-      <version>${poi.version}</version>
-      <exclusions>
-        <exclusion>
-          <groupId>*</groupId>
-          <artifactId>*</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.poi</groupId>
-      <artifactId>poi-ooxml-schemas</artifactId>
-      <version>${poi.version}</version>
-      <exclusions>
-        <exclusion>
-          <groupId>*</groupId>
-          <artifactId>*</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-collections4</artifactId>
       <version>${commons-collections4.version}</version>
@@ -508,7 +462,6 @@
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-compress</artifactId>
-      <version>${commons-compress.version}</version>
       <exclusions>
         <exclusion>
           <groupId>*</groupId>
@@ -538,15 +491,8 @@
       </exclusions>
     </dependency>
     <dependency>
-      <groupId>rome</groupId>
+      <groupId>com.rometools</groupId>
       <artifactId>rome</artifactId>
-      <version>${rome.version}</version>
-      <exclusions>
-        <exclusion>
-          <groupId>*</groupId>
-          <artifactId>*</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.eobjects.sassyreader</groupId>
@@ -759,17 +705,6 @@
       </exclusions>
     </dependency>
     <dependency>
-      <groupId>net.sourceforge.nekohtml</groupId>
-      <artifactId>nekohtml</artifactId>
-      <version>${nekohtml.version}</version>
-      <exclusions>
-        <exclusion>
-          <groupId>*</groupId>
-          <artifactId>*</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <dependency>
       <groupId>com.sun.mail</groupId>
       <artifactId>javax.mail</artifactId>
       <version>${mail.version}</version>
@@ -907,8 +842,24 @@
       <artifactId>httpclient</artifactId>
     </dependency>
     <dependency>
+      <groupId>com.cronutils</groupId>
+      <artifactId>cron-utils</artifactId>
+      <version>9.1.6</version>
+    </dependency>
+    <dependency>
       <groupId>org.apache.httpcomponents</groupId>
       <artifactId>httpcore</artifactId>
+    </dependency>
+
+    <!-- Endorsed Standards Excluded from Java 11+ -->
+    <dependency>
+      <groupId>jakarta.xml.bind</groupId>
+      <artifactId>jakarta.xml.bind-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.sun.xml.bind</groupId>
+      <artifactId>jaxb-impl</artifactId>
+      <scope>runtime</scope>
     </dependency>
 
     <!-- Test dependencies -->
@@ -917,6 +868,16 @@
       <artifactId>kettle-core</artifactId>
       <version>${project.version}</version>
       <classifier>tests</classifier>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-1.2-api</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>

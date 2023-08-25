@@ -2,7 +2,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2002-2019 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2002-2022 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -61,12 +61,14 @@ import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 
 /**
  * Created by bmorrise on 5/3/16.
+ * modified by amit kumar 8/sep/22
  */
 @RunWith( MockitoJUnitRunner.class )
 public class RepositoryConnectControllerTest {
@@ -176,27 +178,6 @@ public class RepositoryConnectControllerTest {
   }
 
   @Test
-  public void testGetRepositories() {
-    when( repositoriesMeta.nrRepositories() ).thenReturn( 1 );
-    when( repositoriesMeta.getRepository( 0 ) ).thenReturn( repositoryMeta );
-
-    JSONObject json = new JSONObject();
-    json.put( "displayName", REPOSITORY_NAME );
-    json.put( "isDefault", false );
-    json.put( "description", REPOSITORY_DESCRIPTION );
-    json.put( "id", REPOSITORY_ID );
-
-    when( repositoryMeta.toJSONObject() ).thenReturn( json );
-
-    String repositories = controller.getRepositories();
-
-    assertEquals(
-      "[{\"isDefault\":false,\"displayName\":\"Repository Name\",\"description\":\"Repository Description\","
-        + "\"id\":\"Repository ID\"}]",
-      repositories );
-  }
-
-  @Test
   public void testConnectToRepository() throws Exception {
     when( pluginRegistry.loadClass( RepositoryPluginType.class, repositoryMeta.getId(), Repository.class ) )
       .thenReturn( repository );
@@ -206,7 +187,9 @@ public class RepositoryConnectControllerTest {
 
     verify( repository ).init( repositoryMeta );
     verify( repository ).connect( null, null );
+    verify( spoon, times( 1 ) ).clearRepositoryDirectory();
   }
+
 
   @Test
   public void testGetDatabases() throws Exception {
@@ -214,9 +197,10 @@ public class RepositoryConnectControllerTest {
     when( repositoriesMeta.getDatabase( 0 ) ).thenReturn( databaseMeta );
     when( databaseMeta.getName() ).thenReturn( DATABASE_NAME );
 
-    String databases = controller.getDatabases();
+    String databases = controller.getDatabases().toString();
     assertEquals( "[{\"name\":\"DATABASE NAME\"}]", databases );
   }
+
 
   @Test
   public void testDeleteRepository() throws Exception {
@@ -250,6 +234,7 @@ public class RepositoryConnectControllerTest {
     verify( repositoriesMeta ).writeData();
   }
 
+
   @Test
   public void testGetRepository() throws Exception {
     KettleFileRepositoryMeta kettleFileRepositoryMeta = new KettleFileRepositoryMeta();
@@ -259,12 +244,14 @@ public class RepositoryConnectControllerTest {
 
     when( repositoriesMeta.findRepository( REPOSITORY_NAME ) ).thenReturn( kettleFileRepositoryMeta );
 
-    String output = controller.getRepository( REPOSITORY_NAME );
+    JSONObject output = controller.getRepository( REPOSITORY_NAME );
+    String outputString = output.toJSONString();
 
-    assertEquals( true, output.contains( REPOSITORY_ID ) );
-    assertEquals( true, output.contains( REPOSITORY_DESCRIPTION ) );
-    assertEquals( true, output.contains( REPOSITORY_NAME ) );
+    assertEquals( true, outputString.contains( REPOSITORY_ID ) );
+    assertEquals( true, outputString.contains( REPOSITORY_DESCRIPTION ) );
+    assertEquals( true, outputString.contains( REPOSITORY_NAME ) );
   }
+
 
   @Test
   public void testRepoSwitch() throws Exception {

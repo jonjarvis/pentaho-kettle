@@ -123,7 +123,15 @@ case `uname -s` in
 			  LIBPATH=$CURRENTDIR/../libswt/osx/
                             fi
 			;;
-
+    arm64)
+        if $($_PENTAHO_JAVA -version 2>&1 | grep "version \"1\.8\..*" > /dev/null )
+                              then
+          echo "I'm sorry, this Mac platform [$ARCH] is not supported in Java 8"
+          exit
+                              else
+          LIBPATH=$CURRENTDIR/../libswt/osx64_aarch/
+                              fi
+      ;;
 		i[3-6]86)
 			LIBPATH=$CURRENTDIR/../libswt/osx/
 			;;
@@ -233,12 +241,21 @@ export LIBPATH
 # **************************************************
 # ** Setup Karaf endorsed libraries directory     **
 # **************************************************
-
 JAVA_ENDORSED_DIRS=""
-if [ ! -z "$_PENTAHO_JAVA_HOME" ]; then
-	JAVA_ENDORSED_DIRS="${_PENTAHO_JAVA_HOME}/jre/lib/endorsed:${_PENTAHO_JAVA_HOME}/lib/endorsed:"
+JAVA_LOCALE_COMPAT=""
+JAVA_ADD_OPENS=""
+if $($_PENTAHO_JAVA -version 2>&1 | grep "version \"1\.8\..*" > /dev/null ) 
+then
+	if [ ! -z "$_PENTAHO_JAVA_HOME" ]; then
+		JAVA_ENDORSED_DIRS="${_PENTAHO_JAVA_HOME}/jre/lib/endorsed:${_PENTAHO_JAVA_HOME}/lib/endorsed:"
+	fi
+	JAVA_ENDORSED_DIRS="${JAVA_ENDORSED_DIRS}${BASEDIR}/system/karaf/lib/endorsed"
+	JAVA_ENDORSED_DIRS="-Djava.endorsed.dirs="${JAVA_ENDORSED_DIRS}
+else
+# required for Java 11 date/time formatting backwards compatibility
+  JAVA_LOCALE_COMPAT="-Djava.locale.providers=COMPAT,SPI"
+  JAVA_ADD_OPENS="--add-opens java.base/java.net=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/sun.net.www.protocol.jar=ALL-UNNAMED"
 fi
-JAVA_ENDORSED_DIRS="${JAVA_ENDORSED_DIRS}${BASEDIR}/system/karaf/lib/endorsed"
 
 # ******************************************************************
 # ** Set java runtime options                                     **
@@ -250,7 +267,7 @@ if [ -z "$PENTAHO_DI_JAVA_OPTIONS" ]; then
     PENTAHO_DI_JAVA_OPTIONS="-Xms1024m -Xmx2048m"
 fi
 
-OPT="$OPT $PENTAHO_DI_JAVA_OPTIONS -Dhttps.protocols=TLSv1,TLSv1.1,TLSv1.2 -Djava.library.path=$LIBPATH -Djava.endorsed.dirs=$JAVA_ENDORSED_DIRS -DKETTLE_HOME=$KETTLE_HOME -DKETTLE_REPOSITORY=$KETTLE_REPOSITORY -DKETTLE_USER=$KETTLE_USER -DKETTLE_PASSWORD=$KETTLE_PASSWORD -DKETTLE_PLUGIN_PACKAGES=$KETTLE_PLUGIN_PACKAGES -DKETTLE_LOG_SIZE_LIMIT=$KETTLE_LOG_SIZE_LIMIT -DKETTLE_JNDI_ROOT=$KETTLE_JNDI_ROOT"
+OPT="$OPT $PENTAHO_DI_JAVA_OPTIONS -Djava.library.path=$LIBPATH $JAVA_ENDORSED_DIRS $JAVA_LOCALE_COMPAT -DKETTLE_HOME=$KETTLE_HOME -DKETTLE_REPOSITORY=$KETTLE_REPOSITORY -DKETTLE_USER=$KETTLE_USER -DKETTLE_PASSWORD=$KETTLE_PASSWORD -DKETTLE_PLUGIN_PACKAGES=$KETTLE_PLUGIN_PACKAGES -DKETTLE_LOG_SIZE_LIMIT=$KETTLE_LOG_SIZE_LIMIT -DKETTLE_JNDI_ROOT=$KETTLE_JNDI_ROOT"
 
 # optional line for attaching a debugger
 # OPT="$OPT -Xdebug -Xnoagent -Djava.compiler=NONE -Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=5005"
@@ -264,9 +281,9 @@ inputtoexitstatus() {
 }
 
 if [ -n "${FILTER_GTK_WARNINGS}" ] ; then
-    (((("$_PENTAHO_JAVA" $OPT -jar "$STARTUP" -lib $LIBPATH "${1+$@}"  2>&1; echo $? >&3 ) | grep -viE "Gtk-WARNING|GLib-GObject|GLib-CRITICAL|^$" >&4 ) 3>&1)| inputtoexitstatus ) 4>&1
+    (((("$_PENTAHO_JAVA"  $JAVA_ADD_OPENS $OPT -jar "$STARTUP" -lib $LIBPATH "${1+$@}"  2>&1; echo $? >&3 ) | grep -viE "Gtk-WARNING|GLib-GObject|GLib-CRITICAL|^$" >&4 ) 3>&1)| inputtoexitstatus ) 4>&1
 else
-    "$_PENTAHO_JAVA" $OPT -jar "$STARTUP" -lib $LIBPATH "${1+$@}"
+    "$_PENTAHO_JAVA"  $JAVA_ADD_OPENS $OPT -jar "$STARTUP" -lib $LIBPATH "${1+$@}"
 fi
 EXIT_CODE=$?
 

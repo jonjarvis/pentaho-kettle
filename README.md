@@ -24,17 +24,17 @@ Integration tests
 How to build
 --------------
 
-Pentaho Data Integration uses the maven framework. 
+Pentaho Data Integration uses the Maven framework. 
 
 
 #### Pre-requisites for building the project:
 * Maven, version 3+
-* Java JDK 1.8
+* Java JDK 11
 * This [settings.xml](https://raw.githubusercontent.com/pentaho/maven-parent-poms/master/maven-support-files/settings.xml) in your <user-home>/.m2 directory
 
 #### Building it
 
-This is a maven project, and to build it use the following command
+This is a Maven project, and to build it use the following command:
 
 ```
 $ mvn clean install
@@ -46,6 +46,17 @@ you shouldn't as you know)
 
 The build result will be a Pentaho package located in ```target```.
 
+#### Packaging / Distributing it
+
+Packages can be built by using the following command:
+```
+$ mvn clean package
+```
+
+The packaged results will be in the `target/` sub-folders of `assemblies/*`.
+
+For example, a distribution of the Desktop Client (CE) can then be found in: `assemblies/client/target/pdi-ce-*-SNAPSHOT.zip`.
+
 #### Running the tests
 
 __Unit tests__
@@ -56,7 +67,7 @@ This will run all unit tests in the project (and sub-modules). To run integratio
 $ mvn test
 ```
 
-If you want to remote debug a single java unit test (default port is 5005):
+If you want to remote debug a single Java unit test (default port is 5005):
 
 ```
 $ cd core

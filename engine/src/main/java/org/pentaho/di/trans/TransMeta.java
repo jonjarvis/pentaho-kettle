@@ -3,7 +3,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2002-2020 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2002-2022 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -79,6 +79,7 @@ import org.pentaho.di.core.row.ValueMetaInterface;
 import org.pentaho.di.core.util.StringUtil;
 import org.pentaho.di.core.util.Utils;
 import org.pentaho.di.core.variables.VariableSpace;
+import org.pentaho.di.core.variables.Variables;
 import org.pentaho.di.core.vfs.KettleVFS;
 import org.pentaho.di.core.xml.XMLFormatter;
 import org.pentaho.di.core.xml.XMLHandler;
@@ -138,7 +139,7 @@ import java.util.stream.Collectors;
  */
 public class TransMeta extends AbstractMeta
     implements XMLInterface, Comparator<TransMeta>, Comparable<TransMeta>, Cloneable, ResourceExportInterface,
-    RepositoryElementInterface, LoggingObjectInterface {
+    RepositoryElementInterface {
 
   /** The package name, used for internationalization of messages. */
   private static Class<?> PKG = Trans.class; // for i18n purposes, needed by Translator2!!
@@ -1746,7 +1747,7 @@ public class TransMeta extends AbstractMeta
 
     for ( int i = 0; i < stepMeta.length; i++ ) {
       RowMetaInterface flds = getStepFields( stepMeta[i] );
-      if ( flds != null ) {
+      if ( flds != null && !flds.isEmpty() ) {
         fields.mergeRowMeta( flds, stepMeta[i].getName() );
       }
     }
@@ -2783,6 +2784,10 @@ public class TransMeta extends AbstractMeta
     // OK, try to load using the VFS stuff...
     Document doc = null;
     try {
+      if (parentVariableSpace == null ) {
+        parentVariableSpace = new Variables();
+      }
+
       final FileObject transFile = KettleVFS.getFileObject( fname, parentVariableSpace );
       if ( !transFile.exists() ) {
         throw new KettleXMLException( BaseMessages.getString( PKG, "TransMeta.Exception.InvalidXMLPath", fname ) );
@@ -5707,8 +5712,8 @@ public class TransMeta extends AbstractMeta
         // The directory of the transformation
         FileName fileDir = fileName.getParent();
         variables.setVariable( Const.INTERNAL_VARIABLE_TRANSFORMATION_FILENAME_DIRECTORY, fileDir.getURI() );
-      } catch ( KettleFileException e ) {
-        log.logError( "Unexpected error setting internal filename variables!", e );
+      } catch ( Exception e ) {
+        //log.logError( "Unexpected error setting internal filename variables!", e );
 
         variables.setVariable( Const.INTERNAL_VARIABLE_TRANSFORMATION_FILENAME_DIRECTORY, "" );
         variables.setVariable( Const.INTERNAL_VARIABLE_TRANSFORMATION_FILENAME_NAME, "" );

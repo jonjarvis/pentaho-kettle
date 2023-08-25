@@ -2,7 +2,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2019 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2019-2022 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -22,6 +22,8 @@
 
 package org.pentaho.di.connections;
 
+import org.pentaho.di.core.variables.VariableSpace;
+
 import java.util.Collections;
 import java.util.Map;
 
@@ -37,7 +39,7 @@ public interface ConnectionDetails {
 
   String getDescription();
 
-  /**
+   /**
    * Gets props associated with this ConnectionDetails.
    * Allows implementors to expose connection properties without
    * requiring clients to have the implementation as a dependency.
@@ -45,4 +47,22 @@ public interface ConnectionDetails {
   default Map<String, String> getProperties() {
     return Collections.emptyMap();
   }
+
+  default Object openDialog( Object wTabFolder, Object propsUI ) {
+    //noop if not defined
+    return null;
+  }
+
+  default void closeDialog( ) {
+    //noop if not defined
+  }
+
+  default void setDescription( String description ) {
+    //remove the default when done implementing
+  }
+
+  VariableSpace getSpace();
+
+  void setSpace( VariableSpace space );
+
 }

@@ -23,8 +23,8 @@
 package org.pentaho.di.ui.repo.plugin;
 
 import org.eclipse.swt.widgets.ToolBar;
-import org.pentaho.di.ui.repo.menu.RepositoryConnectMenu;
 import org.pentaho.di.ui.repo.controller.RepositoryConnectController;
+import org.pentaho.di.ui.repo.menu.RepositoryConnectMenu;
 import org.pentaho.di.ui.spoon.Spoon;
 import org.pentaho.di.ui.spoon.SpoonLifecycleListener;
 import org.pentaho.di.ui.spoon.SpoonPerspective;
@@ -42,8 +42,12 @@ public class RepositorySpoonPlugin implements SpoonPluginInterface {
 
   private RepositoryConnectController repositoryConnectController;
 
-  public RepositorySpoonPlugin( RepositoryConnectController repositoryConnectController ) {
-    this.repositoryConnectController = repositoryConnectController;
+  static RepositoryConnectController getRepoControllerInstance(){
+    return RepositoryConnectController.getInstance();
+  }
+
+  public RepositorySpoonPlugin() {
+    this.repositoryConnectController = getRepoControllerInstance();
   }
 
   @Override

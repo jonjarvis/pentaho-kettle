@@ -2,7 +2,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2002-2019 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2002-2023 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -27,6 +27,7 @@ import org.apache.commons.lang.math.NumberUtils;
 import org.pentaho.di.base.AbstractBaseCommandExecutor;
 import org.pentaho.di.base.CommandExecutorCodes;
 import org.pentaho.di.base.Params;
+import org.pentaho.di.connections.ConnectionManager;
 import org.pentaho.di.core.Const;
 import org.pentaho.di.core.Result;
 import org.pentaho.di.core.RowMetaAndData;
@@ -53,6 +54,7 @@ import org.pentaho.di.trans.step.RowAdapter;
 import org.pentaho.di.trans.step.StepInterface;
 import org.pentaho.di.core.extension.ExtensionPointHandler;
 import org.pentaho.di.core.extension.KettleExtensionPoint;
+import org.pentaho.di.metastore.MetaStoreConst;
 import org.w3c.dom.Document;
 
 import java.io.File;
@@ -62,6 +64,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+
 
 public class PanCommandExecutor extends AbstractBaseCommandExecutor {
 
@@ -92,9 +95,9 @@ public class PanCommandExecutor extends AbstractBaseCommandExecutor {
     try {
 
       if ( getMetaStore() == null ) {
-        setMetaStore( createDefaultMetastore() );
+        setMetaStore( MetaStoreConst.getDefaultMetastore() );
       }
-
+      ConnectionManager.getInstance().setMetastoreSupplier( MetaStoreConst.getDefaultMetastoreSupplier() );
       logDebug( "Pan.Log.StartingToLookOptions" );
 
       // Read kettle transformation specified
@@ -328,11 +331,6 @@ public class PanCommandExecutor extends AbstractBaseCommandExecutor {
 
     if ( directory == null ) {
       return null; // not much we can do here
-    }
-
-    // Add the IMetaStore of the repository to our delegation
-    if ( repository.getMetaStore() != null && getMetaStore() != null ) {
-      getMetaStore().addMetaStore( repository.getMetaStore() );
     }
 
     logDebug( "Pan.Log.LoadTransInfo" );

@@ -2,7 +2,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2002-2020 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2002-2023 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -42,6 +42,7 @@ import org.pentaho.di.trans.TransMeta;
 import org.pentaho.metastore.api.IMetaStore;
 import org.pentaho.metastore.stores.delegate.DelegatingMetaStore;
 import org.powermock.api.mockito.PowerMockito;
+import org.powermock.core.classloader.annotations.PowerMockIgnore;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 import org.pentaho.di.core.plugins.ClassLoadingPluginInterface;
@@ -70,6 +71,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Matchers.same;
 
 @RunWith( PowerMockRunner.class )
+@PowerMockIgnore( "jdk.internal.reflect.*" )
 @PrepareForTest( BaseMessages.class )
 public class PanCommandExecutorTest {
 
@@ -105,7 +107,7 @@ public class PanCommandExecutorTest {
     metastore.addMetaStore( fsMetaStore );
 
     // mock actions from Repository
-    when( repository.getMetaStore() ).thenReturn( repoMetaStore );
+    when( repository.getRepositoryMetaStore() ).thenReturn( repoMetaStore );
 
     // mock actions from PanCommandExecutor
     when( mockedPanCommandExecutor.getMetaStore() ).thenReturn( metastore );
@@ -144,15 +146,6 @@ public class PanCommandExecutorTest {
     assertTrue( trans.getMetaStore() instanceof DelegatingMetaStore );
     assertNotNull( ( (DelegatingMetaStore) trans.getMetaStore() ).getMetaStoreList() );
 
-    assertEquals( 2, ( (DelegatingMetaStore) trans.getMetaStore() ).getMetaStoreList().size() );
-    assertTrue( ( (DelegatingMetaStore) trans.getMetaStore() ).getMetaStoreList().stream()
-      .anyMatch( m -> {
-        try {
-          return REPO_METASTORE_NAME.equals( m.getName() );
-        } catch ( Exception e ) {
-          return false;
-        }
-      } ) );
   }
 
   @Test
@@ -163,19 +156,7 @@ public class PanCommandExecutorTest {
     Trans trans = mockedPanCommandExecutor.loadTransFromFilesystem( "", fullPath, "", "" );
     assertNotNull( trans );
     assertNotNull( trans.getMetaStore() );
-    assertTrue( trans.getMetaStore() instanceof DelegatingMetaStore );
-    assertNotNull( ( (DelegatingMetaStore) trans.getMetaStore() ).getMetaStoreList() );
 
-    assertEquals( 1, ( (DelegatingMetaStore) trans.getMetaStore() ).getMetaStoreList().size() );
-
-    assertTrue( ( (DelegatingMetaStore) trans.getMetaStore() ).getMetaStoreList().stream()
-      .anyMatch( m -> {
-        try {
-          return FS_METASTORE_NAME.equals( m.getName() );
-        } catch ( Exception e ) {
-          return false;
-        }
-      } ) );
   }
 
   @Test

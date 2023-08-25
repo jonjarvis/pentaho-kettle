@@ -2,7 +2,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2002-2020 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2002-2022 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -25,16 +25,18 @@ import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.vfs2.FileObject;
-import org.apache.commons.vfs2.provider.local.LocalFile;
 import org.apache.commons.vfs2.FileSystemException;
+import org.apache.commons.vfs2.provider.local.LocalFile;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 import org.pentaho.di.base.AbstractMeta;
+import org.pentaho.di.connections.vfs.provider.ConnectionFileName;
+import org.pentaho.di.connections.vfs.provider.ConnectionFileProvider;
 import org.pentaho.di.core.Const;
-import org.pentaho.di.core.util.Utils;
 import org.pentaho.di.core.exception.KettleException;
 import org.pentaho.di.core.extension.KettleExtensionPoint;
 import org.pentaho.di.core.logging.LogChannelInterface;
+import org.pentaho.di.core.util.Utils;
 import org.pentaho.di.core.vfs.KettleVFS;
 import org.pentaho.di.repository.RepositoryElementMetaInterface;
 import org.pentaho.di.ui.core.FileDialogOperation;
@@ -128,7 +130,7 @@ public abstract class SelectionAdapterFileDialog<T> extends SelectionAdapter {
    * Getter for SelectionAdapterOptions
    * @return
    */
-  SelectionAdapterOptions getSelectionOptions( ) {
+  public SelectionAdapterOptions getSelectionOptions() {
     return options;
   }
 
@@ -181,7 +183,8 @@ public abstract class SelectionAdapterFileDialog<T> extends SelectionAdapter {
     FileDialogOperation fileDialogOperation = createFileDialogOperation( selectionOperation );
 
     setProviderFilters( fileDialogOperation, providerFilters );
-    setProvider( fileDialogOperation );
+    setConnection( fileDialogOperation, initialFile );
+    setProvider( fileDialogOperation, initialFile );
 
     String connectionFilter = connectionFilterTypes.stream()
       .map( Enum::toString ).collect( Collectors.joining( "," ) );
@@ -263,14 +266,34 @@ public abstract class SelectionAdapterFileDialog<T> extends SelectionAdapter {
     }
   }
 
-  void setProvider( FileDialogOperation fileDialogOperation ) {
-    if ( ( fileDialogOperation.getProviderFilter() == null
-         || fileDialogOperation.getProviderFilter().contains( ProviderFilterType.REPOSITORY.toString() )
-         || fileDialogOperation.getProviderFilter().contains( ProviderFilterType.ALL_PROVIDERS.toString() ) )
-         && isConnectedToRepository() ) {
-      fileDialogOperation.setProvider( ProviderFilterType.REPOSITORY.toString() );
-    } else {
-      fileDialogOperation.setProvider( "" );
+  void setProvider( FileDialogOperation op, FileObject initalFile ) {
+    if ( op.getProviderFilter() == null ) {
+      if ( op.getConnection() != null ) {
+        op.setProvider( ProviderFilterType.VFS.toString() );
+      } else if ( isConnectedToRepository() ) {
+        op.setProvider( ProviderFilterType.REPOSITORY.toString() );
+      } else if ( ConnectionFileProvider.SCHEME.equalsIgnoreCase( initalFile.getURI().getScheme() ) ) {
+        op.setProvider( ProviderFilterType.VFS.toString() );
+      } else if ( "hc".equalsIgnoreCase( initalFile.getURI().getScheme() ) ) {
+        op.setProvider( ProviderFilterType.CLUSTERS.toString() );
+      } else {
+        op.setProvider( ProviderFilterType.LOCAL.toString() );
+      }
+    } else if ( op.getProviderFilter().equalsIgnoreCase( ProviderFilterType.DEFAULT.toString() ) ) {
+      if ( op.getConnection() != null ) {
+        op.setProvider( ProviderFilterType.VFS.toString() );
+      } else if ( "hc".equalsIgnoreCase( initalFile.getURI().getScheme() ) ) {
+        op.setProvider( ProviderFilterType.CLUSTERS.toString() );
+      } else {
+        op.setProvider( ProviderFilterType.LOCAL.toString() );
+      }
+    }
+  }
+
+  void setConnection( FileDialogOperation op, FileObject initialFile ) {
+    if ( op.getConnection() == null && ConnectionFileProvider.SCHEME.equalsIgnoreCase( initialFile.getURI().getScheme() ) ) {
+      // pvfs connection format is pvfs://<connection_name>/<connection_path>, so extract connection_name
+      op.setConnection( ((ConnectionFileName) initialFile.getName()).getConnection() );
     }
   }
 
@@ -360,7 +383,9 @@ public abstract class SelectionAdapterFileDialog<T> extends SelectionAdapter {
 
       // Based on the working environment determine the parent path to compare too.
       if ( isConnectedToRepository() ) {
-        return replaceCurrentDir( path.replace( '\\', '/' ), meta.getRepositoryDirectory().getPath() );
+        String parentPath =
+          meta.getRepositoryDirectory().getParent() == null ? "" : meta.getRepositoryDirectory().getPath();
+        return replaceCurrentDir( path.replace( '\\', '/' ), parentPath );
       }
 
       // Attempt to match using current file as is
@@ -390,16 +415,16 @@ public abstract class SelectionAdapterFileDialog<T> extends SelectionAdapter {
   }
 
   private static String replaceCurrentDir( String path, String parentPath ) {
-    if ( !Utils.isEmpty( path ) && !Utils.isEmpty( parentPath ) && path.startsWith( parentPath ) ) {
-      path = path.replace( parentPath, "${" + Const.INTERNAL_VARIABLE_ENTRY_CURRENT_DIRECTORY + "}" );
-
-      // Ensure the path is uniform for windows. Path's using the internal variable need to use forward slash
-      if ( Const.isWindows() ) {
-        path = path.replace( '\\', '/' );
-      }
-
+    if ( Utils.isEmpty( path ) || Utils.isEmpty( parentPath ) || !path.startsWith( parentPath ) ) {
+      return path;
     }
-    return path;
+
+    // Ensure the path is uniform for windows. Path's using the internal variable need to use forward slash
+    if ( Const.isWindows() ) {
+      path = path.replace( '\\', '/' );
+    }
+
+    return path.replace( parentPath, "${" + Const.INTERNAL_VARIABLE_ENTRY_CURRENT_DIRECTORY + "}" );
   }
 
   String getRepositoryFilePath( FileDialogOperation fileDialogOperation ) {

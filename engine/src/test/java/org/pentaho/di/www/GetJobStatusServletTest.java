@@ -2,7 +2,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2002-2021 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2002-2022 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -34,6 +34,7 @@ import org.pentaho.di.job.JobMeta;
 import org.pentaho.di.www.cache.CarteStatusCache;
 import org.pentaho.di.www.exception.DuplicateKeyException;
 import org.powermock.api.mockito.PowerMockito;
+import org.powermock.core.classloader.annotations.PowerMockIgnore;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 
@@ -57,6 +58,7 @@ import static org.mockito.Mockito.atLeastOnce;
 
 
 @RunWith( PowerMockRunner.class )
+@PowerMockIgnore( "jdk.internal.reflect.*" )
 public class GetJobStatusServletTest {
   private JobMap mockJobMap;
 
@@ -159,9 +161,9 @@ public class GetJobStatusServletTest {
     when( cacheMock.get( logId, 0 ) ).thenReturn( new byte[] { 0, 1, 2 } );
     getJobStatusServlet.doGet( mockHttpServletRequest, mockHttpServletResponse );
 
-    verify( cacheMock, times( 2 ) ).get( logId, 0 );
-    verify( cacheMock, times( 1 ) ).put( eq( logId ), anyString(), eq( 0 ) );
-    verify( mockJob, times( 1 ) ).getLogChannel();
+    verify( cacheMock, times( 2 ) ).get( logId, 9999999 );
+    verify( cacheMock, times( 2 ) ).put( eq( logId ), anyString(), eq( 9999999 ) );
+    verify( mockJob, times( 2 ) ).getLogChannel();
 
   }
 
