@@ -13,21 +13,6 @@
 
 package org.pentaho.di.core.plugins;
 
-import org.pentaho.di.core.Const;
-import org.pentaho.di.core.exception.KettlePluginClassMapException;
-import org.pentaho.di.core.exception.KettlePluginException;
-import org.pentaho.di.core.logging.KettleLogStore;
-import org.pentaho.di.core.logging.LogChannel;
-import org.pentaho.di.core.logging.LogChannelInterface;
-import org.pentaho.di.core.logging.Metrics;
-import org.pentaho.di.core.row.RowBuffer;
-import org.pentaho.di.core.row.RowMeta;
-import org.pentaho.di.core.row.RowMetaInterface;
-import org.pentaho.di.core.row.value.ValueMetaString;
-import org.pentaho.di.core.util.EnvUtil;
-import org.pentaho.di.core.util.Utils;
-import org.pentaho.di.i18n.BaseMessages;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -44,6 +29,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -53,6 +39,24 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
+
+import org.apache.commons.vfs2.FileObject;
+import org.apache.commons.vfs2.FileSelectInfo;
+import org.apache.commons.vfs2.FileSelector;
+import org.pentaho.di.core.Const;
+import org.pentaho.di.core.exception.KettlePluginClassMapException;
+import org.pentaho.di.core.exception.KettlePluginException;
+import org.pentaho.di.core.logging.KettleLogStore;
+import org.pentaho.di.core.logging.LogChannel;
+import org.pentaho.di.core.logging.LogChannelInterface;
+import org.pentaho.di.core.logging.Metrics;
+import org.pentaho.di.core.row.RowBuffer;
+import org.pentaho.di.core.row.RowMeta;
+import org.pentaho.di.core.row.RowMetaInterface;
+import org.pentaho.di.core.row.value.ValueMetaString;
+import org.pentaho.di.core.util.EnvUtil;
+import org.pentaho.di.core.util.Utils;
+import org.pentaho.di.i18n.BaseMessages;
 
 /**
  * This singleton provides access to all the plugins in the Kettle universe.<br> It allows you to register types and
@@ -66,11 +70,8 @@ public class PluginRegistry {
 
   private static final PluginRegistry pluginRegistry = new PluginRegistry();
 
-//  private static final List<PluginTypeInterface> pluginTypes = new ArrayList<>();
-//  private static final List<PluginRegistryExtension> extensions = new ArrayList<>();
   private static final Set<PluginTypeInterface> pluginTypes = Collections.newSetFromMap( new ConcurrentHashMap<PluginTypeInterface, Boolean>() );
   private static final Set<PluginRegistryExtension> extensions = Collections.newSetFromMap( new ConcurrentHashMap<PluginRegistryExtension, Boolean>() );
-  private static final ReentrantReadWriteLock staticLock = new ReentrantReadWriteLock();
 
   private static final String SUPPLEMENTALS_SUFFIX = "-supplementals";
 
@@ -92,11 +93,17 @@ public class PluginRegistry {
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
   private static final int WAIT_FOR_PLUGIN_TO_BE_AVAILABLE_LIMIT = 3000;
 
-
+  private ClassLoader pluginFolderParentClassLoader;
+  
   /**
    * Initialize the registry, keep private to keep this a singleton
    */
   private PluginRegistry() {
+    /*
+     * Create the ClassLoader that will act as a parent between application
+     * class loader and the plugins loaded from PluginFolders
+     */
+    createPluginFolderParentClassLoader();
   }
 
   /**
@@ -391,7 +398,7 @@ public class PluginRegistry {
       File jarfile = new File( jarFiles.get( i ) );
       urls[i] = new URL( URLDecoder.decode( jarfile.toURI().toURL().toString(), "UTF-8" ) );
     }
-    ClassLoader classLoader = getClass().getClassLoader();
+    ClassLoader classLoader = getPluginFolderParentClassLoader();
     String[] patterns = parentClassloaderPatternMap.get( plugin );
     if ( patterns != null ) {
       return new KettleSelectiveParentFirstClassLoader( urls, classLoader, plugin.getDescription(), patterns );
@@ -561,7 +568,7 @@ public class PluginRegistry {
       e.printStackTrace();
     }
     log.snap( Metrics.METRIC_PLUGIN_REGISTRY_REGISTER_EXTENSIONS_STOP );
-
+    
     log.snap( Metrics.METRIC_PLUGIN_REGISTRY_PLUGIN_REGISTRATION_START );
     for ( final PluginTypeInterface pluginType : pluginTypes ) {
       log.snap( Metrics.METRIC_PLUGIN_REGISTRY_PLUGIN_TYPE_REGISTRATION_START, pluginType.getName() );
@@ -653,6 +660,51 @@ public class PluginRegistry {
     }
 
   }
+  
+  public ClassLoader getPluginFolderParentClassLoader() {
+    return pluginFolderParentClassLoader;
+  }
+  
+  private void createPluginFolderParentClassLoader() {
+    
+    try {
+      
+      List<PluginFolderInterface> pluginFolders = PluginFolder.populateFolders( null );
+      List<URL> apiURLs = new LinkedList<>();
+      
+      for( PluginFolderInterface pfi : pluginFolders ) {
+       
+        FileObject[] apiFolders = pfi.findApiFolders();
+        
+        for( FileObject apiFolder: apiFolders ) {
+          for( FileObject apiFile : apiFolder.findFiles( new FileSelector() {
+  
+            @Override
+            public boolean includeFile( FileSelectInfo fileInfo ) throws Exception {
+              return fileInfo.getFile().getName().getBaseName().endsWith( ".jar" );
+            }
+  
+            @Override
+            public boolean traverseDescendents( FileSelectInfo fileInfo ) throws Exception {
+              return true;
+            }
+            
+          }) ) {
+            apiURLs.add( apiFile.getURL() );
+          }
+        }
+      }
+      
+      this.pluginFolderParentClassLoader = new KettleURLClassLoader( apiURLs.toArray( URL[]::new ), getClass().getClassLoader() );
+      
+    } catch( Exception e ) {
+      
+      this.pluginFolderParentClassLoader = getClass().getClassLoader();
+      
+    }
+    
+  }
+  
 
   /**
    * Find the plugin ID based on the class

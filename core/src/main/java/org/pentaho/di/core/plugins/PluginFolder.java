@@ -135,6 +135,37 @@ public class PluginFolder implements PluginFolderInterface {
       throw new KettleFileException( "Unable to list jar files in plugin folder '" + toString() + "'", e );
     }
   }
+  
+  @Override
+  public FileObject[] findApiFolders() throws KettleFileException {
+    
+    try {
+      
+      FileObject folderObject = KettleVFS.getInstance( DefaultBowl.getInstance() ).getFileObject( this.getFolder() );
+      
+      return folderObject.findFiles( new FileSelector() {
+
+        @Override
+        public boolean includeFile( FileSelectInfo fileInfo ) throws Exception {
+          FileObject file = fileInfo.getFile();
+          return file.isFolder() && file.getName().getBaseName().equals( "api" );
+        }
+
+        @Override
+        public boolean traverseDescendents( FileSelectInfo fileInfo ) throws Exception {
+          FileObject fileObject = fileInfo.getFile();
+          String folder = fileObject.getName().getBaseName();
+          FileObject kettleIgnore = fileObject.getChild( ".kettle-ignore" );
+          return kettleIgnore == null && !"lib".equals( folder ) && !"api".equals( folder );
+        }
+        
+      });
+      
+    } catch( Exception e ) {
+      throw new KettleFileException( String.format( "Unable to find api folders in plugin folder '%s'!", toString() ), e );
+    }
+    
+  }
 
   /**
    * @return the folder

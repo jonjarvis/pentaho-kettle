@@ -48,4 +48,12 @@ public interface PluginFolderInterface {
    */
   public FileObject[] findJarFiles() throws KettleFileException;
 
+  /**
+   * Find all the api folders in this plugin folder
+   * @return The folders containing api files
+   * @throws KettleFileException
+   */
+  public FileObject[] findApiFolders() throws KettleFileException;
+  
+  
 }

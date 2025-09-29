@@ -695,7 +695,7 @@ public abstract class BasePluginType implements PluginTypeInterface {
     for ( JarFileAnnotationPlugin jarFilePlugin : jarFilePlugins ) {
 
       URLClassLoader urlClassLoader =
-        createUrlClassLoader( jarFilePlugin.getJarFile(), getClass().getClassLoader() );
+        createUrlClassLoader( jarFilePlugin.getJarFile(), PluginRegistry.getInstance().getPluginFolderParentClassLoader() );
 
       try {
         Class<?> clazz = urlClassLoader.loadClass( jarFilePlugin.getClassName() );
